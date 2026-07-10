@@ -127,6 +127,9 @@ export default function StudentFees() {
   };
 
   const handlePayment = async (amount, label) => {
+    if (!fee?.razorpayEnabled) {
+      return alert("Online fee payment is not configured on the server. Please use the direct UPI payment option.");
+    }
     if (amount > fee.totalDue) {
        amount = fee.totalDue;
     }
@@ -172,7 +175,9 @@ export default function StudentFees() {
 
       const rzp = new window.Razorpay(options);
       rzp.open();
-    } catch (e) { alert("Failed to initiate payment"); }
+    } catch (e) {
+      alert(e.response?.data?.message || e.message || "Failed to initiate payment");
+    }
   };
 
   const closeUpiModal = () => {
@@ -431,6 +436,11 @@ export default function StudentFees() {
       {/* Payment Options */}
       <h3 style={s.sectionTitle}>Select Your Payment Option</h3>
       <div style={s.optionsGrid} className="student-fee-options">
+        {!fee.razorpayEnabled && (
+          <div style={s.payNotice}>
+            Online card and UPI checkout is not configured on the server right now. You can still use the direct UPI payment option below.
+          </div>
+        )}
         {/* Full Year */}
         <div style={s.optionCard} className="student-fee-option-card">
           <div style={s.optIcon}><i className="fa-solid fa-crown"></i></div>
@@ -439,9 +449,9 @@ export default function StudentFees() {
           <div style={s.optAmount}>₹{fee.totalDue.toLocaleString()}</div>
           <button 
             style={s.btnPay} 
-            disabled={fee.totalDue <= 0}
+            disabled={fee.totalDue <= 0 || !fee.razorpayEnabled}
             onClick={() => handlePayment(fee.totalDue, "Annual Full Payment")}
-          >Pay Full Amount</button>
+          >{fee.razorpayEnabled ? "Pay Full Amount" : "Payment Unavailable"}</button>
         </div>
 
         {/* Half Yearly */}
@@ -452,9 +462,9 @@ export default function StudentFees() {
           <div style={s.optAmount}>₹{Math.round(fee.totalAnnualFee / 2).toLocaleString()}</div>
           <button 
             style={s.btnPay} 
-            disabled={fee.totalDue <= 0}
+            disabled={fee.totalDue <= 0 || !fee.razorpayEnabled}
             onClick={() => handlePayment(fee.totalAnnualFee / 2, "Half-Yearly Installment")}
-          >Pay Half-Yearly</button>
+          >{fee.razorpayEnabled ? "Pay Half-Yearly" : "Payment Unavailable"}</button>
         </div>
 
         {/* Quarterly */}
@@ -465,9 +475,9 @@ export default function StudentFees() {
           <div style={s.optAmount}>₹{Math.round(fee.totalAnnualFee / 4).toLocaleString()}</div>
           <button 
             style={s.btnPay} 
-            disabled={fee.totalDue <= 0}
+            disabled={fee.totalDue <= 0 || !fee.razorpayEnabled}
             onClick={() => handlePayment(fee.totalAnnualFee / 4, "Quarterly Installment")}
-          >Pay Quarterly</button>
+          >{fee.razorpayEnabled ? "Pay Quarterly" : "Payment Unavailable"}</button>
         </div>
       </div>
 
@@ -499,9 +509,9 @@ export default function StudentFees() {
                     type="button"
                     style={s.rzpButton}
                     onClick={() => handlePayment(term.amount, `${term.termName} Payment`)}
-                    disabled={fee.totalDue <= 0}
+                    disabled={fee.totalDue <= 0 || !fee.razorpayEnabled}
                   >
-                    Pay with Razorpay
+                    {fee.razorpayEnabled ? "Pay with Razorpay" : "Payment Unavailable"}
                   </button>
                 </div>
               ) : (
@@ -624,6 +634,7 @@ const s = {
 
   sectionTitle: { fontSize: '1.2rem', fontWeight: '800', color: 'var(--navy)', marginBottom: '24px', borderLeft: '5px solid var(--gold)', paddingLeft: '15px', textTransform: 'uppercase', letterSpacing: '0.05em' },
   optionsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '30px', marginBottom: '50px' },
+  payNotice: { gridColumn: "1 / -1", background: "var(--gold-pale)", color: "var(--navy-dark)", border: "1px solid rgba(202,153,0,0.25)", borderRadius: "16px", padding: "14px 16px", fontWeight: "700" },
   optionCard: { background: 'white', padding: '40px 30px', borderRadius: '24px', textAlign: 'center', boxShadow: 'var(--shadow-md)', border: '1px solid var(--border)', transition: '0.3s hover', display: 'flex', flexDirection: 'column', alignItems: 'center' },
   optIcon: { width: '60px', height: '60px', borderRadius: '50%', background: 'var(--gold-pale)', color: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', marginBottom: '20px', border: '1px solid var(--gold)' },
   optTitle: { fontSize: '1.4rem', color: 'var(--navy)', fontWeight: '800', marginBottom: '8px' },

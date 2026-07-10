@@ -244,7 +244,9 @@ exports.getByStudentId = async (req, res) => {
       }
     }
 
-    res.json(fee);
+    const payload = fee.toObject ? fee.toObject() : fee;
+    payload.razorpayEnabled = hasRazorpayCredentials();
+    res.json(payload);
   } catch (e) {
     res.status(500).json({ message: e.message });
   }
@@ -553,6 +555,12 @@ exports.recordPayment = async (req, res) => {
 
 exports.createRazorpayOrder = async (req, res) => {
   try {
+    if (!hasRazorpayCredentials()) {
+      return res.status(503).json({
+        message: "Online fee payment is not configured on the server. Please use UPI payment or contact the school office."
+      });
+    }
+
     const { studentFeeId, termNumber } = req.body;
     const fee = await StudentFee.findById(studentFeeId);
     const term = fee.terms.find(t => t.termNumber === Number(termNumber));
@@ -612,6 +620,12 @@ exports.verifyRazorpay = async (req, res) => {
 
 exports.createFlexibleOrder = async (req, res) => {
   try {
+    if (!hasRazorpayCredentials()) {
+      return res.status(503).json({
+        message: "Online fee payment is not configured on the server. Please use UPI payment or contact the school office."
+      });
+    }
+
     const { amount } = req.body;
     const options = {
       amount: Math.round(amount * 100), // in paise
