@@ -10,7 +10,7 @@ const { getIO } = require("../utils/socket");
 const { canTeachersManageFees } = require("./settingController");
 
 const SCHOOL_UPI_ID = process.env.SCHOOL_UPI_ID || "lemhs@kbl";
-const SCHOOL_NAME = process.env.SCHOOL_NAME || "Loretto Central School";
+const SCHOOL_NAME = process.env.SCHOOL_NAME || "Loreto English Medium High School General Fees Account";
 
 const hasRazorpayCredentials = () =>
   Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
@@ -345,11 +345,15 @@ exports.getTestUpiLink = async (req, res) => {
 
     const termLabel = normalizeLabel(label || `TEST-${amount}`);
     const upiTrReference = `${studentId}-${termLabel}`;
-    const { upiLink } = buildUpiLink({
-      amount,
-      studentId,
-      termLabel
+    const params = new URLSearchParams({
+      pa: SCHOOL_UPI_ID,
+      pn: SCHOOL_NAME,
+      am: String(Number(amount || 0).toFixed(2)),
+      tn: label || "Test Payment",
+      tr: upiTrReference,
+      cu: "INR"
     });
+    const upiLink = `upi://pay?${params.toString()}`;
 
     const qrCodeDataUrl = await QRCode.toDataURL(upiLink, {
       errorCorrectionLevel: "M",
