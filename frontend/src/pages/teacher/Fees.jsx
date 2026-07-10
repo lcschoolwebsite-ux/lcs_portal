@@ -163,7 +163,7 @@ export default function Fees() {
       {error && <div style={s.errorBox}>{error}</div>}
 
       {stats && (
-        <div style={s.statsBar}>
+        <div style={s.statsBar} className="teacher-fees-stats">
           <div style={s.statBox}>
             <div style={s.statLabel}>Expected</div>
             <div style={s.statValue}>₹{Number(stats.totalFeeExpected || 0).toLocaleString()}</div>
@@ -191,8 +191,8 @@ export default function Fees() {
         </div>
       )}
 
-      <div style={s.filterArea}>
-        <div style={s.filterRow}>
+      <div style={s.filterArea} className="teacher-fees-filters">
+        <div style={s.filterRow} className="teacher-fees-filter-row">
           <select style={s.filterSelect} value={activeAY} onChange={e => setActiveAY(e.target.value)}>
             {academicYears.map(y => <option key={y._id} value={y._id}>{y.year}</option>)}
           </select>
@@ -207,7 +207,7 @@ export default function Fees() {
             <option value="Unpaid">Unpaid</option>
           </select>
         </div>
-        <div style={s.searchRow}>
+        <div style={s.searchRow} className="teacher-fees-search-row">
           <input
             style={s.searchInput}
             placeholder="Search by name or SATS no..."
@@ -217,7 +217,7 @@ export default function Fees() {
         </div>
       </div>
 
-      <div style={s.contextBar}>
+      <div style={s.contextBar} className="teacher-fees-context">
         <div>
           <div style={s.contextTitle}>{selectedClass ? formatClass(selectedClass) : "Select a class"}</div>
           <div style={s.contextSub}>Showing student fee records assigned to you as class teacher.</div>
@@ -225,8 +225,8 @@ export default function Fees() {
         <div style={s.contextBadge}>{fees.length} record{fees.length === 1 ? "" : "s"}</div>
       </div>
 
-      <div style={s.mainGrid}>
-        <div style={s.listPanel}>
+      <div style={s.mainGrid} className="teacher-fees-grid">
+        <div style={s.listPanel} className="teacher-fees-list">
           {loading && <div style={s.emptyBox}>Loading fee records...</div>}
           {!loading && !teacherClasses.length && (
             <div style={s.emptyBox}>You are not assigned as class teacher for any class yet.</div>
@@ -243,6 +243,7 @@ export default function Fees() {
                 borderLeft: `5px solid ${fee.overallStatus === "Paid" ? "#10b981" : fee.overallStatus === "Partial" ? "#f59e0b" : "#ef4444"}`,
                 background: selectedFee?._id === fee._id ? "var(--gold-pale)" : "white"
               }}
+              className="teacher-fees-card"
             >
               <div style={s.studentInfo}>
                 <div style={s.avatar}>{fee.student?.name?.[0]}</div>
@@ -251,7 +252,7 @@ export default function Fees() {
                   <div style={s.studentSub}>{fee.student?.satCode} • {formatClass(fee.student?.class)}</div>
                 </div>
               </div>
-              <div style={s.feeShortInfo}>
+              <div style={s.feeShortInfo} className="teacher-fees-card-meta">
                 <div style={{ ...s.statusBadge, ...(fee.overallStatus === "Paid" ? s.bgPaid : fee.overallStatus === "Partial" ? s.bgPartial : s.bgUnpaid) }}>
                   {fee.overallStatus}
                 </div>
@@ -261,10 +262,10 @@ export default function Fees() {
           ))}
         </div>
 
-        <div style={s.detailPanel}>
+        <div style={s.detailPanel} className="teacher-fees-detail">
           {selectedFee ? (
             <div style={{ animation: "fadeIn 0.3s ease" }}>
-              <div style={s.detailHeader}>
+              <div style={s.detailHeader} className="teacher-fees-detail-header">
                 <div style={s.largeAvatar}>{selectedFee.student?.name?.[0]}</div>
                 <div style={{ flex: 1 }}>
                   <h2 style={s.detailName}>{selectedFee.student?.name}</h2>
@@ -282,7 +283,7 @@ export default function Fees() {
                 </button>
               </div>
 
-              <div style={s.detailMetrics}>
+              <div style={s.detailMetrics} className="teacher-fees-metrics">
                 <div style={s.metricBox}>
                   <div style={s.metricLabel}>Annual Total</div>
                   <div style={s.metricValue}>₹{Number(selectedFee.totalAnnualFee || 0).toLocaleString()}</div>
@@ -299,26 +300,28 @@ export default function Fees() {
 
               <div style={s.sectionTitle}>Transaction History</div>
               {selectedFee.terms.filter(t => t.status === "Paid").length > 0 ? (
-                <table style={s.table}>
-                  <thead>
-                    <tr>
-                      <th style={s.th}>Description</th>
-                      <th style={s.th}>Amount</th>
-                      <th style={s.th}>Method</th>
-                      <th style={s.th}>Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedFee.terms.filter(t => t.status === "Paid").reverse().map((term, idx) => (
-                      <tr key={idx}>
-                        <td style={s.td}>{term.termName}</td>
-                        <td style={s.td}>₹{Number(term.paidAmount || 0).toLocaleString()}</td>
-                        <td style={s.td}>{term.method}</td>
-                        <td style={s.td}>{term.paidDate}</td>
+                <div className="teacher-fees-table-shell">
+                  <table style={s.table}>
+                    <thead>
+                      <tr>
+                        <th style={s.th}>Description</th>
+                        <th style={s.th}>Amount</th>
+                        <th style={s.th}>Method</th>
+                        <th style={s.th}>Date</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {selectedFee.terms.filter(t => t.status === "Paid").reverse().map((term, idx) => (
+                        <tr key={idx}>
+                          <td style={s.td}>{term.termName}</td>
+                          <td style={s.td}>₹{Number(term.paidAmount || 0).toLocaleString()}</td>
+                          <td style={s.td}>{term.method}</td>
+                          <td style={s.td}>{term.paidDate}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               ) : (
                 <div style={s.noPlanBox}>
                   <i className="fa-solid fa-receipt" style={{ fontSize: "2rem", marginBottom: "10px" }}></i>
@@ -337,7 +340,7 @@ export default function Fees() {
         onClose={() => setIsPaymentModalOpen(false)}
         title={`Record Payment — ${selectedFee?.student?.name || ""}`}
         footer={
-          <div style={{ display: "flex", gap: "12px", width: "100%" }}>
+          <div style={{ display: "flex", gap: "12px", width: "100%" }} className="teacher-fees-modal-actions">
             <button onClick={() => setIsPaymentModalOpen(false)} style={s.btnCancel}>Cancel</button>
             <button onClick={handleRecordPayment} style={s.btnConfirm} disabled={!allowTeacherFeeManagement}>
               Confirm & Save

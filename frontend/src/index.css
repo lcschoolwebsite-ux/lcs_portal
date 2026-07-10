@@ -1144,6 +1144,77 @@ table {
     padding-bottom: 104px !important;
   }
 
+  .teacher-fees-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    padding: 16px !important;
+    gap: 8px !important;
+  }
+
+  .teacher-fees-stats .statBox {
+    border-right: none !important;
+  }
+
+  .teacher-fees-filter-row {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  .teacher-fees-context {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+
+  .teacher-fees-grid {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+    gap: 16px !important;
+  }
+
+  .teacher-fees-list,
+  .teacher-fees-detail {
+    max-height: none !important;
+    min-height: 0 !important;
+    padding: 14px !important;
+  }
+
+  .teacher-fees-card {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  .teacher-fees-card-meta {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .teacher-fees-detail-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 14px !important;
+  }
+
+  .teacher-fees-detail-header button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .teacher-fees-metrics {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .teacher-fees-table-shell {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .teacher-fees-table-shell table {
+    min-width: 520px;
+  }
+
   .teacher-hero-banner {
     padding: 20px 18px !important;
     border-radius: 14px !important;
@@ -1249,6 +1320,35 @@ table {
     width: 24px !important;
     height: 24px !important;
     font-size: 0.68rem !important;
+  }
+
+  .teacher-fees-stats {
+    grid-template-columns: 1fr !important;
+  }
+
+  .teacher-fees-stats .statBox:last-child {
+    border-right: none !important;
+  }
+
+  .teacher-fees-card {
+    padding: 12px !important;
+  }
+
+  .teacher-fees-detail {
+    padding: 12px !important;
+  }
+
+  .teacher-fees-detail-header .teacher-fees-action,
+  .teacher-fees-detail-header button {
+    width: 100%;
+  }
+
+  .teacher-fees-modal-actions {
+    flex-direction: column !important;
+  }
+
+  .teacher-fees-modal-actions button {
+    width: 100%;
   }
 
   .teacher-header .teacher-breadcrumb,
