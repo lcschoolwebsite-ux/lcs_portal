@@ -67,7 +67,6 @@ const makeUpiReference = (...parts) => {
 const buildUpiLink = ({ amount, reference, note }) => {
   const params = new URLSearchParams({
     pa: SCHOOL_UPI_ID,
-    pn: SCHOOL_NAME,
     am: String(Number(amount || 0).toFixed(2)),
     tn: note || "Test Payment",
     tr: reference,
