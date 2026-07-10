@@ -69,9 +69,12 @@ const buildUpiLink = ({ amount, reference, note }) => {
     pa: SCHOOL_UPI_ID,
     am: String(Number(amount || 0).toFixed(2)),
     tn: note || "Test Payment",
-    tr: reference,
     cu: "INR"
   });
+
+  if (reference) {
+    params.set("tr", reference);
+  }
 
   return {
     upiLink: `upi://pay?${params.toString()}`,
@@ -346,11 +349,9 @@ exports.getTestUpiLink = async (req, res) => {
       return res.status(400).json({ message: "Enter a valid amount" });
     }
 
-    const termLabel = normalizeLabel(label || `TEST-${amount}`);
-    const upiTrReference = makeUpiReference(studentId, "TEST", amount, termLabel);
     const { upiLink } = buildUpiLink({
       amount,
-      reference: upiTrReference,
+      reference: "",
       note: label || "Test Payment"
     });
 
@@ -363,7 +364,7 @@ exports.getTestUpiLink = async (req, res) => {
     res.json({
       upiLink,
       qrCodeDataUrl,
-      upiTrReference,
+      upiTrReference: "",
       payeeVpa: SCHOOL_UPI_ID,
       amount,
       term: {

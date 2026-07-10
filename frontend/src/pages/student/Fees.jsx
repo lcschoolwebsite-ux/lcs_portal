@@ -145,7 +145,7 @@ export default function StudentFees() {
         loading: false,
         upiLink: data.upiLink,
         qrCodeDataUrl: data.qrCodeDataUrl,
-        upiTrReference: data.upiTrReference || "",
+        upiTrReference: data.upiTrReference || "Not used for this test",
         payeeVpa: data.payeeVpa || "",
       }));
     } catch (e) {
@@ -548,7 +548,7 @@ export default function StudentFees() {
                 </div>
                 <div style={s.upiInfoCard}>
                   <div style={s.upiInfoLabel}>Reference</div>
-                  <div style={s.upiInfoValue}>{upiState.upiTrReference || "Generating..."}</div>
+                  <div style={s.upiInfoValue}>{upiState.upiTrReference || "Not used for this test"}</div>
                 </div>
               </div>
 
