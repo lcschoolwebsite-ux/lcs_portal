@@ -20,6 +20,8 @@ export default function Fees() {
   const [allowTeacherFeeManagement, setAllowTeacherFeeManagement] = useState(true);
   const [savingPermission, setSavingPermission] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isFeeDetailModalOpen, setIsFeeDetailModalOpen] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     amount: "",
     method: "Cash",
@@ -102,6 +104,14 @@ export default function Fees() {
   }, []);
 
   useEffect(() => {
+    const media = window.matchMedia("(max-width: 760px)");
+    const sync = () => setIsMobileView(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
     if (teacherClasses.length > 0 && !filters.classId) {
       setFilters(prev => ({ ...prev, classId: teacherClasses[0]._id }));
     }
@@ -114,6 +124,12 @@ export default function Fees() {
     if (!activeAY) return;
     fetchFeeData();
   }, [activeAY, filters.classId, filters.status, filters.search]);
+
+  useEffect(() => {
+    if (!isMobileView) {
+      setIsFeeDetailModalOpen(false);
+    }
+  }, [isMobileView]);
 
   const handleRecordPayment = async () => {
     if (!allowTeacherFeeManagement) return alert("Fee recording is blocked by the administrator.");
@@ -143,6 +159,85 @@ export default function Fees() {
       alert(e.response?.data?.message || "Failed to record payment");
     }
   };
+
+  const handleSelectFee = fee => {
+    setSelectedFee(fee);
+    if (isMobileView) {
+      setIsFeeDetailModalOpen(true);
+    }
+  };
+
+  const closeFeeDetailModal = () => setIsFeeDetailModalOpen(false);
+
+  const feeDetailContent = selectedFee ? (
+    <div style={{ animation: "fadeIn 0.3s ease" }}>
+      <div style={s.detailHeader} className="teacher-fees-detail-header">
+        <div style={s.largeAvatar}>{selectedFee.student?.name?.[0]}</div>
+        <div style={{ flex: 1 }}>
+          <h2 style={s.detailName}>{selectedFee.student?.name}</h2>
+          <p style={s.detailSub}>{selectedFee.student?.satCode} • {formatClass(selectedFee.student?.class)}</p>
+          <div style={{ ...s.statusBadge, ...(selectedFee.overallStatus === "Paid" ? s.bgPaid : selectedFee.overallStatus === "Partial" ? s.bgPartial : s.bgUnpaid) }}>
+            Overall Status: {selectedFee.overallStatus}
+          </div>
+        </div>
+        <button
+          onClick={() => setIsPaymentModalOpen(true)}
+          style={{ ...s.btnMainRecord, ...(allowTeacherFeeManagement ? {} : s.btnDisabled) }}
+          disabled={selectedFee.totalDue <= 0 || !allowTeacherFeeManagement}
+        >
+          <i className="fa-solid fa-plus-circle"></i> Record Payment
+        </button>
+      </div>
+
+      <div style={s.detailMetrics} className="teacher-fees-metrics">
+        <div style={s.metricBox}>
+          <div style={s.metricLabel}>Annual Total</div>
+          <div style={s.metricValue}>₹{Number(selectedFee.totalAnnualFee || 0).toLocaleString()}</div>
+        </div>
+        <div style={s.metricBox}>
+          <div style={s.metricLabel}>Total Paid</div>
+          <div style={{ ...s.metricValue, color: "#10b981" }}>₹{Number(selectedFee.totalPaid || 0).toLocaleString()}</div>
+        </div>
+        <div style={s.metricBox}>
+          <div style={s.metricLabel}>Total Due</div>
+          <div style={{ ...s.metricValue, color: "#ef4444" }}>₹{Number(selectedFee.totalDue || 0).toLocaleString()}</div>
+        </div>
+      </div>
+
+      <div style={s.sectionTitle}>Transaction History</div>
+      {selectedFee.terms.filter(t => t.status === "Paid").length > 0 ? (
+        <div className="teacher-fees-table-shell">
+          <table style={s.table}>
+            <thead>
+              <tr>
+                <th style={s.th}>Description</th>
+                <th style={s.th}>Amount</th>
+                <th style={s.th}>Method</th>
+                <th style={s.th}>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {selectedFee.terms.filter(t => t.status === "Paid").reverse().map((term, idx) => (
+                <tr key={idx}>
+                  <td style={s.td}>{term.termName}</td>
+                  <td style={s.td}>₹{Number(term.paidAmount || 0).toLocaleString()}</td>
+                  <td style={s.td}>{term.method}</td>
+                  <td style={s.td}>{term.paidDate}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div style={s.noPlanBox}>
+          <i className="fa-solid fa-receipt" style={{ fontSize: "2rem", marginBottom: "10px" }}></i>
+          <p>No payments recorded yet.</p>
+        </div>
+      )}
+    </div>
+  ) : (
+    <div style={s.placeholder}>Select a student to manage fees</div>
+  );
 
   const selectedClass = teacherClasses.find(c => c._id === filters.classId);
 
@@ -237,7 +332,7 @@ export default function Fees() {
           {!loading && fees.map(fee => (
             <div
               key={fee._id}
-              onClick={() => setSelectedFee(fee)}
+              onClick={() => handleSelectFee(fee)}
               style={{
                 ...s.studentCard,
                 borderLeft: `5px solid ${fee.overallStatus === "Paid" ? "#10b981" : fee.overallStatus === "Partial" ? "#f59e0b" : "#ef4444"}`,
@@ -263,77 +358,21 @@ export default function Fees() {
         </div>
 
         <div style={s.detailPanel} className="teacher-fees-detail">
-          {selectedFee ? (
-            <div style={{ animation: "fadeIn 0.3s ease" }}>
-              <div style={s.detailHeader} className="teacher-fees-detail-header">
-                <div style={s.largeAvatar}>{selectedFee.student?.name?.[0]}</div>
-                <div style={{ flex: 1 }}>
-                  <h2 style={s.detailName}>{selectedFee.student?.name}</h2>
-                  <p style={s.detailSub}>{selectedFee.student?.satCode} • {formatClass(selectedFee.student?.class)}</p>
-                  <div style={{ ...s.statusBadge, ...(selectedFee.overallStatus === "Paid" ? s.bgPaid : selectedFee.overallStatus === "Partial" ? s.bgPartial : s.bgUnpaid) }}>
-                    Overall Status: {selectedFee.overallStatus}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsPaymentModalOpen(true)}
-                  style={{ ...s.btnMainRecord, ...(allowTeacherFeeManagement ? {} : s.btnDisabled) }}
-                  disabled={selectedFee.totalDue <= 0 || !allowTeacherFeeManagement}
-                >
-                  <i className="fa-solid fa-plus-circle"></i> Record Payment
-                </button>
-              </div>
-
-              <div style={s.detailMetrics} className="teacher-fees-metrics">
-                <div style={s.metricBox}>
-                  <div style={s.metricLabel}>Annual Total</div>
-                  <div style={s.metricValue}>₹{Number(selectedFee.totalAnnualFee || 0).toLocaleString()}</div>
-                </div>
-                <div style={s.metricBox}>
-                  <div style={s.metricLabel}>Total Paid</div>
-                  <div style={{ ...s.metricValue, color: "#10b981" }}>₹{Number(selectedFee.totalPaid || 0).toLocaleString()}</div>
-                </div>
-                <div style={s.metricBox}>
-                  <div style={s.metricLabel}>Total Due</div>
-                  <div style={{ ...s.metricValue, color: "#ef4444" }}>₹{Number(selectedFee.totalDue || 0).toLocaleString()}</div>
-                </div>
-              </div>
-
-              <div style={s.sectionTitle}>Transaction History</div>
-              {selectedFee.terms.filter(t => t.status === "Paid").length > 0 ? (
-                <div className="teacher-fees-table-shell">
-                  <table style={s.table}>
-                    <thead>
-                      <tr>
-                        <th style={s.th}>Description</th>
-                        <th style={s.th}>Amount</th>
-                        <th style={s.th}>Method</th>
-                        <th style={s.th}>Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedFee.terms.filter(t => t.status === "Paid").reverse().map((term, idx) => (
-                        <tr key={idx}>
-                          <td style={s.td}>{term.termName}</td>
-                          <td style={s.td}>₹{Number(term.paidAmount || 0).toLocaleString()}</td>
-                          <td style={s.td}>{term.method}</td>
-                          <td style={s.td}>{term.paidDate}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div style={s.noPlanBox}>
-                  <i className="fa-solid fa-receipt" style={{ fontSize: "2rem", marginBottom: "10px" }}></i>
-                  <p>No payments recorded yet.</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div style={s.placeholder}>Select a student to manage fees</div>
-          )}
+          {feeDetailContent}
         </div>
       </div>
+
+      <Modal
+        isOpen={isFeeDetailModalOpen && Boolean(selectedFee)}
+        onClose={closeFeeDetailModal}
+        title={selectedFee?.student?.name || "Fee details"}
+        subtitle={`${selectedFee?.student?.satCode || ""} ${selectedFee?.student?.class ? `• ${formatClass(selectedFee.student.class)}` : ""}`}
+        maxWidth="760px"
+      >
+        <div className="teacher-fees-mobile-sheet">
+          {feeDetailContent}
+        </div>
+      </Modal>
 
       <Modal
         isOpen={isPaymentModalOpen}

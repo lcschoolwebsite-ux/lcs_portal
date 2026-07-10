@@ -1177,6 +1177,19 @@ table {
     padding: 14px !important;
   }
 
+  .teacher-fees-detail {
+    display: none !important;
+  }
+
+  .teacher-fees-mobile-sheet .teacher-fees-detail-header {
+    padding-bottom: 16px !important;
+    margin-bottom: 18px !important;
+  }
+
+  .teacher-fees-mobile-sheet .teacher-fees-metrics {
+    margin-bottom: 20px !important;
+  }
+
   .teacher-fees-card {
     flex-direction: column !important;
     align-items: flex-start !important;
