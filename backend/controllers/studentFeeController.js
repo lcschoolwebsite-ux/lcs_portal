@@ -1,9 +1,11 @@
 const StudentFee = require("../models/StudentFee");
 const Student = require("../models/Student");
+const Class = require("../models/Class");
 const AcademicYear = require("../models/AcademicYear");
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const { notifyStudentById } = require("../utils/pushNotification");
+const { canTeachersManageFees } = require("./settingController");
 
 const hasRazorpayCredentials = () =>
   Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
@@ -19,6 +21,29 @@ const getRazorpayClient = () => {
   });
 };
 
+const toObjectIdString = value => String(value || "");
+
+const getTeacherClassIds = async teacherId => {
+  const classes = await Class.find({ classTeacher: teacherId }).select("_id").lean();
+  return classes.map(cls => toObjectIdString(cls._id));
+};
+
+const ensureTeacherFeeAccess = async (req) => {
+  if (req.user.role !== "teacher") return { allowed: true };
+
+  const classIds = await getTeacherClassIds(req.user.id);
+  return {
+    allowed: true,
+    classIds
+  };
+};
+
+const getStudentIdsForClasses = async classIds => {
+  if (!Array.isArray(classIds) || classIds.length === 0) return [];
+  const students = await Student.find({ class: { $in: classIds } }).select("_id").lean();
+  return students.map(student => student._id);
+};
+
 exports.getAll = async (req, res) => {
   try {
     const { classId, academicYear, status, search } = req.query;
@@ -26,10 +51,18 @@ exports.getAll = async (req, res) => {
     if (academicYear) filter.academicYear = academicYear;
     if (status) filter.overallStatus = status;
 
+    const teacherAccess = await ensureTeacherFeeAccess(req);
     let studentIds = null;
     if (classId || search) {
       const sFilter = {};
-      if (classId) sFilter.class = classId;
+      if (req.user.role === "teacher") {
+        if (classId && !teacherAccess.classIds.includes(toObjectIdString(classId))) {
+          return res.status(403).json({ message: "Access denied for this class" });
+        }
+        sFilter.class = classId || { $in: teacherAccess.classIds };
+      } else if (classId) {
+        sFilter.class = classId;
+      }
       if (search) {
         const regex = { $regex: search, $options: "i" };
         sFilter.$or = [
@@ -43,6 +76,8 @@ exports.getAll = async (req, res) => {
       const students = await Student.find(sFilter).select("_id");
       studentIds = students.map(s => s._id);
       filter.student = { $in: studentIds };
+    } else if (req.user.role === "teacher") {
+      filter.student = { $in: await getStudentIdsForClasses(teacherAccess.classIds) };
     }
 
     const fees = await StudentFee.find(filter)
@@ -63,10 +98,16 @@ exports.getStats = async (req, res) => {
     const { academicYear, classId } = req.query;
     const filter = {};
     if (academicYear) filter.academicYear = academicYear;
-    
+
+    const teacherAccess = await ensureTeacherFeeAccess(req);
     if (classId) {
+      if (req.user.role === "teacher" && !teacherAccess.classIds.includes(toObjectIdString(classId))) {
+        return res.status(403).json({ message: "Access denied for this class" });
+      }
       const students = await Student.find({ class: classId }).select("_id");
       filter.student = { $in: students.map(s => s._id) };
+    } else if (req.user.role === "teacher") {
+      filter.student = { $in: await getStudentIdsForClasses(teacherAccess.classIds) };
     }
 
     const fees = await StudentFee.find(filter);
@@ -108,6 +149,16 @@ exports.getByStudentId = async (req, res) => {
     // Authorization
     if (req.user.role === "student" && req.user.id !== req.params.studentId) {
       return res.status(403).json({ message: "Unauthorized" });
+    }
+    if (req.user.role === "teacher") {
+      const teacherAccess = await ensureTeacherFeeAccess(req);
+      if (!teacherAccess.allowed) {
+        return res.status(403).json({ message: teacherAccess.message });
+      }
+      const studentClassId = toObjectIdString(fee.student?.class?._id || fee.student?.class || "");
+      if (!teacherAccess.classIds.includes(studentClassId)) {
+        return res.status(403).json({ message: "Access denied for this student" });
+      }
     }
 
     res.json(fee);
@@ -272,8 +323,20 @@ exports.recordFlexiblePayment = async (req, res) => {
   try {
     const { studentFeeId, amount, method, paidDate, note } = req.body;
     const fee = await StudentFee.findById(studentFeeId);
+    const teacherAccess = await ensureTeacherFeeAccess(req);
+    const canManageFees = await canTeachersManageFees();
     
     if (!fee) return res.status(404).json({ message: "Fee record not found" });
+    if (req.user.role === "teacher" && !canManageFees) {
+      return res.status(403).json({ message: "Fee entry is disabled for teachers" });
+    }
+
+    if (req.user.role === "teacher") {
+      const student = await Student.findById(fee.student).select("class").lean();
+      if (!teacherAccess.classIds.includes(toObjectIdString(student?.class))) {
+        return res.status(403).json({ message: "Access denied for this student" });
+      }
+    }
     if (!amount || Number(amount) <= 0) return res.status(400).json({ message: "Enter a valid payment amount" });
     if (Number(amount) > fee.totalDue) return res.status(400).json({ message: "Payment amount cannot exceed total due" });
 

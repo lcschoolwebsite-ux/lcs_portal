@@ -15,6 +15,7 @@ const ClassWorkspace = lazy(() => import("../pages/teacher/ClassWorkspace"));
 const Students = lazy(() => import("../pages/teacher/Students"));
 const AddStudent = lazy(() => import("../pages/teacher/AddStudent"));
 const Attendance = lazy(() => import("../pages/teacher/Attendance"));
+const Fees = lazy(() => import("../pages/teacher/Fees"));
 const Marks = lazy(() => import("../pages/teacher/Marks"));
 const Exams = lazy(() => import("../pages/teacher/Exams"));
 const Announcements = lazy(() => import("../pages/teacher/Announcements"));
@@ -36,6 +37,7 @@ const MENU_GROUPS = [
       { label: "My Students", path: "/teacher/students", icon: "fa-solid fa-users" },
       { label: "Add Student", path: "/teacher/students/add", icon: "fa-solid fa-user-plus" },
       { label: "Attendance", path: "/teacher/attendance", icon: "fa-solid fa-clipboard-user" },
+      { label: "Fee Management", path: "/teacher/fees", icon: "fa-solid fa-wallet" },
     ]
   },
   {
@@ -94,8 +96,8 @@ export default function TeacherLayout() {
     { label: "Dashboard", shortLabel: "Home", path: "/teacher", icon: "fa-solid fa-chart-line" },
     { label: "Notices", shortLabel: "Notices", path: "/teacher/announcements", icon: "fa-solid fa-bullhorn" },
     { label: "Attendance", shortLabel: "Attend", path: "/teacher/attendance", icon: "fa-solid fa-clipboard-user" },
+    { label: "Fees", shortLabel: "Fees", path: "/teacher/fees", icon: "fa-solid fa-wallet" },
     { label: "Marks", shortLabel: "Marks", path: "/teacher/marks", icon: "fa-solid fa-pen-to-square" },
-    { label: "Students", shortLabel: "Students", path: "/teacher/students", icon: "fa-solid fa-users" },
   ];
 
   return (
@@ -205,6 +207,7 @@ export default function TeacherLayout() {
               <Route path="/students" element={<Students />} />
               <Route path="/students/add" element={<AddStudent />} />
               <Route path="/attendance" element={<Attendance />} />
+              <Route path="/fees" element={<Fees />} />
               <Route path="/marks" element={<Marks />} />
               <Route path="/exams" element={<Exams />} />
               <Route path="/announcements" element={<Announcements />} />

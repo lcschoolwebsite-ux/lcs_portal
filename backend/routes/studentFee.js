@@ -7,11 +7,11 @@ const {
   createFlexibleOrder, verifyFlexiblePayment, recordFlexiblePayment, remove
 } = require("../controllers/studentFeeController");
 
-router.get("/", auth, roles("admin"), getAll);
-router.get("/stats", auth, roles("admin"), getStats);
-router.get("/student/:studentId", auth, getByStudentId);
+router.get("/", auth, roles("admin", "teacher"), getAll);
+router.get("/stats", auth, roles("admin", "teacher"), getStats);
+router.get("/student/:studentId", auth, roles("admin", "teacher", "student"), getByStudentId);
 router.post("/record-payment", auth, roles("admin"), recordPayment);
-router.post("/record-flexible-payment", auth, roles("admin"), recordFlexiblePayment);
+router.post("/record-flexible-payment", auth, roles("admin", "teacher"), recordFlexiblePayment);
 router.delete("/:id", auth, roles("admin"), remove);
 router.post("/create-flexible-order", auth, roles("student"), createFlexibleOrder);
 router.post("/verify-flexible-payment", auth, roles("student"), verifyFlexiblePayment);
