@@ -151,6 +151,16 @@ export default function StudentFees() {
     }
   };
 
+  const openBalanceUpiPayment = () => {
+    openUpiPayment({
+      _id: "overall",
+      termName: "Balance Payment",
+      amount: fee?.totalDue || fee?.totalAnnualFee || 0,
+      paymentStatus: "UNPAID",
+      status: "Unpaid"
+    });
+  };
+
   const submitUpiClaim = async () => {
     const term = upiState.term;
     if (!term?._id) return;
@@ -367,6 +377,19 @@ export default function StudentFees() {
       </div>
 
       <h3 style={s.sectionTitle}>Term Payment Options</h3>
+      {termItems.length === 0 && Number(fee.totalDue || 0) > 0 && (
+        <div style={s.balancePayCard} className="student-balance-pay-card">
+          <div>
+            <div style={s.balancePayLabel}>Pay Remaining Balance</div>
+            <div style={s.balancePayText}>
+              No term-wise fee records are available yet, so you can pay the remaining balance via UPI.
+            </div>
+          </div>
+          <button type="button" style={s.balancePayBtn} onClick={openBalanceUpiPayment}>
+            Pay via UPI
+          </button>
+        </div>
+      )}
       <div style={s.termGrid} className="student-term-grid">
         {termItems.length === 0 && (
           <div style={s.emptyTermBox}>Term-wise fee records are not available yet.</div>
@@ -516,6 +539,10 @@ const s = {
   td: { padding: '16px', borderBottom: '1px solid var(--border)', color: 'var(--navy)', fontWeight: '600' },
   btnSmall: { padding: '8px 16px', borderRadius: '30px', border: '1.5px solid var(--navy)', background: 'white', color: 'var(--navy)', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }
   ,termGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "18px", marginBottom: "40px" },
+  balancePayCard: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", background: "rgba(14,107,107,0.08)", border: "1px solid rgba(14,107,107,0.18)", borderRadius: "18px", padding: "18px 20px", marginBottom: "20px", flexWrap: "wrap" },
+  balancePayLabel: { fontSize: "0.78rem", textTransform: "uppercase", color: "var(--gold)", fontWeight: "900", letterSpacing: "0.08em", marginBottom: "6px" },
+  balancePayText: { color: "var(--navy)", fontWeight: "700" },
+  balancePayBtn: { padding: "14px 18px", borderRadius: "18px", border: "none", background: "var(--navy)", color: "var(--gold-light)", fontWeight: "800", cursor: "pointer", whiteSpace: "nowrap" },
   termCard: { background: "white", borderRadius: "18px", border: "1px solid var(--border)", padding: "20px", boxShadow: "var(--shadow-sm)" },
   termHeader: { display: "flex", justifyContent: "space-between", gap: "14px", alignItems: "flex-start", marginBottom: "16px" },
   termTitle: { fontSize: "1.05rem", fontWeight: "900", color: "var(--navy)" },

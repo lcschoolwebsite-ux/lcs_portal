@@ -270,15 +270,23 @@ exports.getUpiLink = async (req, res) => {
       await ensureTeacherClassAccessForFee(req, fee);
     }
 
-    const term = findTermById(fee, termId);
-    if (!term) {
+    const isBalancePayment = termId === "overall";
+    const term = isBalancePayment ? null : findTermById(fee, termId);
+    if (!term && !isBalancePayment) {
       return res.status(404).json({ message: "Term not found" });
     }
 
-    const termLabel = getTermLabel(term);
-    const upiTrReference = await persistUpiReferenceIfNeeded(fee, term, studentId);
+    const amount = isBalancePayment ? Number(fee.totalDue || fee.totalAnnualFee || 0) : Number(term.amount || 0);
+    if (amount <= 0) {
+      return res.status(400).json({ message: "No balance due for UPI payment" });
+    }
+
+    const termLabel = isBalancePayment ? "BALANCE" : getTermLabel(term);
+    const upiTrReference = isBalancePayment
+      ? `${String(studentId)}-${termLabel}`
+      : await persistUpiReferenceIfNeeded(fee, term, studentId);
     const { upiLink } = buildUpiLink({
-      amount: term.amount,
+      amount,
       studentId,
       termLabel
     });
@@ -293,8 +301,18 @@ exports.getUpiLink = async (req, res) => {
       upiLink,
       qrCodeDataUrl,
       upiTrReference,
-      amount: term.amount,
-      term: {
+      amount,
+      term: isBalancePayment ? {
+        _id: "overall",
+        termNumber: 0,
+        termName: "Balance Payment",
+        amount,
+        paymentStatus: "UNPAID",
+        utrNumber: "",
+        claimedAt: null,
+        verifiedAt: null,
+        rejectionReason: ""
+      } : {
         _id: term._id,
         termNumber: term.termNumber,
         termName: term.termName,
@@ -330,9 +348,51 @@ exports.claimUpiPayment = async (req, res) => {
       return res.status(404).json({ message: "Fee record not found" });
     }
 
-    const term = findTermById(fee, termId);
-    if (!term) {
+    const isBalancePayment = termId === "overall";
+    let term = isBalancePayment ? null : findTermById(fee, termId);
+    if (!term && !isBalancePayment) {
       return res.status(404).json({ message: "Term not found" });
+    }
+
+    if (!term && isBalancePayment) {
+      const balanceAmount = Number(fee.totalDue || fee.totalAnnualFee || 0);
+      if (balanceAmount <= 0) {
+        return res.status(400).json({ message: "No balance due" });
+      }
+
+      fee.terms.push({
+        termNumber: (fee.terms || []).length + 1,
+        termName: "Balance Payment",
+        amount: balanceAmount,
+        status: "Unpaid",
+        paymentStatus: "PENDING_VERIFICATION",
+        paidAmount: 0,
+        upiTrReference: `${String(studentId)}-BALANCE`,
+        utrNumber,
+        claimedAt: new Date(),
+        verifiedAt: null,
+        verifiedByAdminId: null,
+        rejectionReason: ""
+      });
+
+      await fee.save();
+      term = fee.terms[fee.terms.length - 1];
+
+      return res.json({
+        message: "Payment claim submitted for verification",
+        term: {
+          _id: term._id,
+          termNumber: term.termNumber,
+          termName: term.termName,
+          amount: term.amount,
+          paymentStatus: term.paymentStatus,
+          utrNumber: term.utrNumber,
+          claimedAt: term.claimedAt,
+          verifiedAt: term.verifiedAt,
+          rejectionReason: term.rejectionReason,
+          upiTrReference: term.upiTrReference
+        }
+      });
     }
 
     if (term.paymentStatus === "PAID" || term.status === "Paid") {
