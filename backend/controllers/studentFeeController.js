@@ -329,6 +329,56 @@ exports.getUpiLink = async (req, res) => {
   }
 };
 
+exports.getTestUpiLink = async (req, res) => {
+  try {
+    const studentId = String(req.user?.id || "");
+    const amount = Number(req.query?.amount || 0);
+    const label = String(req.query?.label || "TEST PAYMENT").trim();
+
+    if (!studentId) {
+      return res.status(400).json({ message: "Student identity not found" });
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ message: "Enter a valid amount" });
+    }
+
+    const termLabel = normalizeLabel(label || `TEST-${amount}`);
+    const upiTrReference = `${studentId}-${termLabel}`;
+    const { upiLink } = buildUpiLink({
+      amount,
+      studentId,
+      termLabel
+    });
+
+    const qrCodeDataUrl = await QRCode.toDataURL(upiLink, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 280
+    });
+
+    res.json({
+      upiLink,
+      qrCodeDataUrl,
+      upiTrReference,
+      amount,
+      term: {
+        _id: "test",
+        termNumber: 0,
+        termName: label || "Test Payment",
+        amount,
+        paymentStatus: "UNPAID",
+        utrNumber: "",
+        claimedAt: null,
+        verifiedAt: null,
+        rejectionReason: ""
+      }
+    });
+  } catch (e) {
+    res.status(e.status || 500).json({ message: e.message });
+  }
+};
+
 exports.claimUpiPayment = async (req, res) => {
   try {
     const { studentId, termId } = req.params;
