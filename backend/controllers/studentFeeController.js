@@ -59,13 +59,17 @@ const normalizeLabel = value =>
 const getTermLabel = term =>
   normalizeLabel(term?.termName || `TERM${term?.termNumber || ""}`);
 
-const buildUpiLink = ({ amount, studentId, termLabel }) => {
-  const reference = `${studentId}-${termLabel}`;
+const makeUpiReference = (...parts) => {
+  const digest = crypto.createHash("sha1").update(parts.filter(Boolean).join("|")).digest("hex").slice(0, 12).toUpperCase();
+  return `UPI${digest}`;
+};
+
+const buildUpiLink = ({ amount, reference, note }) => {
   const params = new URLSearchParams({
     pa: SCHOOL_UPI_ID,
     pn: SCHOOL_NAME,
     am: String(Number(amount || 0).toFixed(2)),
-    tn: `Fee${termLabel}`,
+    tn: note || "Test Payment",
     tr: reference,
     cu: "INR"
   });
@@ -120,7 +124,7 @@ const persistUpiReferenceIfNeeded = async (fee, term, studentId) => {
   if (!term) return "";
 
   if (!term.upiTrReference) {
-    term.upiTrReference = `${String(studentId)}-${getTermLabel(term)}`;
+    term.upiTrReference = makeUpiReference(studentId, term._id || term.termNumber || term.termName || "", getTermLabel(term));
     await fee.save();
   }
 
@@ -283,12 +287,12 @@ exports.getUpiLink = async (req, res) => {
 
     const termLabel = isBalancePayment ? "BALANCE" : getTermLabel(term);
     const upiTrReference = isBalancePayment
-      ? `${String(studentId)}-${termLabel}`
+      ? makeUpiReference(studentId, "BALANCE", String(fee._id || studentId))
       : await persistUpiReferenceIfNeeded(fee, term, studentId);
     const { upiLink } = buildUpiLink({
       amount,
-      studentId,
-      termLabel
+      reference: upiTrReference,
+      note: isBalancePayment ? "Balance Payment" : `Fee ${termLabel}`
     });
 
     const qrCodeDataUrl = await QRCode.toDataURL(upiLink, {
@@ -344,16 +348,12 @@ exports.getTestUpiLink = async (req, res) => {
     }
 
     const termLabel = normalizeLabel(label || `TEST-${amount}`);
-    const upiTrReference = `${studentId}-${termLabel}`;
-    const params = new URLSearchParams({
-      pa: SCHOOL_UPI_ID,
-      pn: SCHOOL_NAME,
-      am: String(Number(amount || 0).toFixed(2)),
-      tn: label || "Test Payment",
-      tr: upiTrReference,
-      cu: "INR"
+    const upiTrReference = makeUpiReference(studentId, "TEST", amount, termLabel);
+    const { upiLink } = buildUpiLink({
+      amount,
+      reference: upiTrReference,
+      note: label || "Test Payment"
     });
-    const upiLink = `upi://pay?${params.toString()}`;
 
     const qrCodeDataUrl = await QRCode.toDataURL(upiLink, {
       errorCorrectionLevel: "M",
@@ -421,7 +421,7 @@ exports.claimUpiPayment = async (req, res) => {
         status: "Unpaid",
         paymentStatus: "PENDING_VERIFICATION",
         paidAmount: 0,
-        upiTrReference: `${String(studentId)}-BALANCE`,
+        upiTrReference: makeUpiReference(studentId, "BALANCE", String(fee._id || studentId)),
         utrNumber,
         claimedAt: new Date(),
         verifiedAt: null,
@@ -465,7 +465,7 @@ exports.claimUpiPayment = async (req, res) => {
     term.verifiedByAdminId = null;
     term.rejectionReason = "";
     if (!term.upiTrReference) {
-      term.upiTrReference = `${String(studentId)}-${getTermLabel(term)}`;
+      term.upiTrReference = makeUpiReference(studentId, term._id || term.termNumber || term.termName || "", getTermLabel(term));
     }
 
     await fee.save();
