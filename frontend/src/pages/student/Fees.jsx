@@ -11,8 +11,6 @@ const formatReceiptDate = (date) => {
   return new Date(date).toLocaleDateString("en-IN");
 };
 
-const formatReceiptAmount = (amount) => `Rs. ${Number(amount || 0).toLocaleString("en-IN")}`;
-
 const loadReceiptLogo = () => {
   return new Promise((resolve) => {
     const img = new Image();
@@ -114,71 +112,6 @@ export default function StudentFees() {
   }, []);
 
   const termItems = useMemo(() => (Array.isArray(fee?.terms) ? [...fee.terms].sort((a, b) => a.termNumber - b.termNumber) : []), [fee]);
-
-  const loadRazorpay = () => {
-    return new Promise((resolve) => {
-      if (window.Razorpay) return resolve(true);
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
-  const handlePayment = async (amount, label) => {
-    if (!fee?.razorpayEnabled) {
-      return alert("Online fee payment is not configured on the server. Please use the direct UPI payment option.");
-    }
-    if (amount > fee.totalDue) {
-       amount = fee.totalDue;
-    }
-    if (amount <= 0) return alert("No balance due!");
-
-    const res = await loadRazorpay();
-    if (!res) return alert("Razorpay SDK failed to load");
-
-    try {
-      // Create order for specific amount
-      const { data: order } = await api.post("/student-fees/create-flexible-order", {
-        studentFeeId: fee._id,
-        amount: amount
-      });
-
-      const options = {
-        key: order.keyId,
-        amount: order.amount,
-        currency: order.currency,
-        name: "Loretto Central School",
-        description: `Fee Payment - ${label}`,
-        order_id: order.id,
-        handler: async (response) => {
-          try {
-            await api.post("/student-fees/verify-flexible-payment", {
-              studentFeeId: fee._id,
-              amount: amount,
-              label: label,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature
-            });
-            alert("Payment successful!");
-            fetchFeeData();
-          } catch (e) { alert("Verification failed"); }
-        },
-        prefill: {
-          name: user.name,
-          email: user.email,
-        },
-        theme: { color: "#0e6b6b" }
-      };
-
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-    } catch (e) {
-      alert(e.response?.data?.message || e.message || "Failed to initiate payment");
-    }
-  };
 
   const closeUpiModal = () => {
     setUpiState(prev => ({ ...prev, open: false, loading: false, error: "" }));
@@ -433,54 +366,6 @@ export default function StudentFees() {
         </div>
       </div>
 
-      {/* Payment Options */}
-      <h3 style={s.sectionTitle}>Select Your Payment Option</h3>
-      <div style={s.optionsGrid} className="student-fee-options">
-        {!fee.razorpayEnabled && (
-          <div style={s.payNotice}>
-            Online card and UPI checkout is not configured on the server right now. You can still use the direct UPI payment option below.
-          </div>
-        )}
-        {/* Full Year */}
-        <div style={s.optionCard} className="student-fee-option-card">
-          <div style={s.optIcon}><i className="fa-solid fa-crown"></i></div>
-          <h4 style={s.optTitle}>Full Year</h4>
-          <p style={s.optSub}>Pay the entire remaining balance in one go.</p>
-          <div style={s.optAmount}>₹{fee.totalDue.toLocaleString()}</div>
-          <button 
-            style={s.btnPay} 
-            disabled={fee.totalDue <= 0 || !fee.razorpayEnabled}
-            onClick={() => handlePayment(fee.totalDue, "Annual Full Payment")}
-          >{fee.razorpayEnabled ? "Pay Full Amount" : "Payment Unavailable"}</button>
-        </div>
-
-        {/* Half Yearly */}
-        <div style={s.optionCard} className="student-fee-option-card">
-          <div style={s.optIcon}><i className="fa-solid fa-calendar-days"></i></div>
-          <h4 style={s.optTitle}>Half-Yearly</h4>
-          <p style={s.optSub}>Pay equivalent to 50% of the annual fee.</p>
-          <div style={s.optAmount}>₹{Math.round(fee.totalAnnualFee / 2).toLocaleString()}</div>
-          <button 
-            style={s.btnPay} 
-            disabled={fee.totalDue <= 0 || !fee.razorpayEnabled}
-            onClick={() => handlePayment(fee.totalAnnualFee / 2, "Half-Yearly Installment")}
-          >{fee.razorpayEnabled ? "Pay Half-Yearly" : "Payment Unavailable"}</button>
-        </div>
-
-        {/* Quarterly */}
-        <div style={s.optionCard} className="student-fee-option-card">
-          <div style={s.optIcon}><i className="fa-solid fa-clock"></i></div>
-          <h4 style={s.optTitle}>Quarterly</h4>
-          <p style={s.optSub}>Pay equivalent to 25% of the annual fee.</p>
-          <div style={s.optAmount}>₹{Math.round(fee.totalAnnualFee / 4).toLocaleString()}</div>
-          <button 
-            style={s.btnPay} 
-            disabled={fee.totalDue <= 0 || !fee.razorpayEnabled}
-            onClick={() => handlePayment(fee.totalAnnualFee / 4, "Quarterly Installment")}
-          >{fee.razorpayEnabled ? "Pay Quarterly" : "Payment Unavailable"}</button>
-        </div>
-      </div>
-
       <h3 style={s.sectionTitle}>Term Payment Options</h3>
       <div style={s.termGrid} className="student-term-grid">
         {termItems.length === 0 && (
@@ -504,14 +389,6 @@ export default function StudentFees() {
                 <div style={s.termActions} className="student-term-actions">
                   <button type="button" style={s.upiButton} onClick={() => openUpiPayment(term)}>
                     Pay via UPI (Direct)
-                  </button>
-                  <button
-                    type="button"
-                    style={s.rzpButton}
-                    onClick={() => handlePayment(term.amount, `${term.termName} Payment`)}
-                    disabled={fee.totalDue <= 0 || !fee.razorpayEnabled}
-                  >
-                    {fee.razorpayEnabled ? "Pay with Razorpay" : "Payment Unavailable"}
                   </button>
                 </div>
               ) : (
@@ -633,15 +510,6 @@ const s = {
   pText: { fontWeight: '900', color: 'var(--gold)', fontSize: '1.2rem' },
 
   sectionTitle: { fontSize: '1.2rem', fontWeight: '800', color: 'var(--navy)', marginBottom: '24px', borderLeft: '5px solid var(--gold)', paddingLeft: '15px', textTransform: 'uppercase', letterSpacing: '0.05em' },
-  optionsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '30px', marginBottom: '50px' },
-  payNotice: { gridColumn: "1 / -1", background: "var(--gold-pale)", color: "var(--navy-dark)", border: "1px solid rgba(202,153,0,0.25)", borderRadius: "16px", padding: "14px 16px", fontWeight: "700" },
-  optionCard: { background: 'white', padding: '40px 30px', borderRadius: '24px', textAlign: 'center', boxShadow: 'var(--shadow-md)', border: '1px solid var(--border)', transition: '0.3s hover', display: 'flex', flexDirection: 'column', alignItems: 'center' },
-  optIcon: { width: '60px', height: '60px', borderRadius: '50%', background: 'var(--gold-pale)', color: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', marginBottom: '20px', border: '1px solid var(--gold)' },
-  optTitle: { fontSize: '1.4rem', color: 'var(--navy)', fontWeight: '800', marginBottom: '8px' },
-  optSub: { fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '24px', lineHeight: '1.4', height: '40px' },
-  optAmount: { fontSize: '2rem', fontWeight: '900', color: 'var(--navy)', marginBottom: '30px' },
-  btnPay: { width: '100%', padding: '16px', borderRadius: '50px', border: 'none', background: 'linear-gradient(135deg, var(--gold), var(--gold-light))', color: 'var(--navy-dark)', fontWeight: '800', fontSize: '1.1rem', cursor: 'pointer', transition: '0.3s' },
-
   historySection: { background: 'white', padding: '30px', borderRadius: '24px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' },
   table: { width: '100%', borderCollapse: 'collapse' },
   th: { textAlign: 'left', padding: '16px', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: '2px solid var(--border)', fontWeight: '800' },
@@ -659,7 +527,6 @@ const s = {
   badgeRejected: { background: "#e5e7eb", color: "#374151" },
   termActions: { display: "flex", gap: "12px", flexWrap: "wrap" },
   upiButton: { flex: 1, minWidth: "180px", padding: "14px 16px", borderRadius: "18px", border: "1px solid #0e6b6b", background: "rgba(14,107,107,0.08)", color: "var(--navy)", fontWeight: "800", cursor: "pointer" },
-  rzpButton: { flex: 1, minWidth: "180px", padding: "14px 16px", borderRadius: "18px", border: "none", background: "linear-gradient(135deg, var(--gold), var(--gold-light))", color: "var(--navy-dark)", fontWeight: "800", cursor: "pointer" },
   termStatusLocked: { padding: "14px 16px", borderRadius: "18px", background: "var(--light-bg)", color: "var(--navy)", fontWeight: "800", textAlign: "center" },
   emptyTermBox: { gridColumn: "1 / -1", padding: "24px", borderRadius: "16px", border: "1px dashed var(--border)", color: "var(--text-muted)", textAlign: "center", fontWeight: "700" },
   upiModalBody: { display: "flex", flexDirection: "column", gap: "18px" },
