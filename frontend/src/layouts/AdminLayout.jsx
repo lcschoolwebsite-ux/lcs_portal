@@ -21,6 +21,7 @@ const Exams = lazy(() => import("../pages/admin/Exams"));
 const Attendance = lazy(() => import("../pages/admin/Attendance"));
 const FeeStructure = lazy(() => import("../pages/admin/FeeStructure"));
 const Fees = lazy(() => import("../pages/admin/Fees"));
+const PendingUpiVerifications = lazy(() => import("../pages/admin/PendingUpiVerifications"));
 const Announcements = lazy(() => import("../pages/admin/Announcements"));
 const Analytics = lazy(() => import("../pages/admin/Analytics"));
 const MarksOverview = lazy(() => import("../pages/admin/MarksOverview"));
@@ -61,14 +62,15 @@ const menuGroups = [
       { label: "Student Notices", path: "/admin/student-notices", icon: "fa-solid fa-paper-plane" },
     ],
   },
-  {
-    title: "Accounts",
-    items: [
-      { label: "Fee Structure", path: "/admin/fee-structure", icon: "fa-solid fa-money-check-dollar" },
-      { label: "Fee Management", path: "/admin/fees", icon: "fa-solid fa-receipt" },
-    ],
-  },
-];
+    {
+      title: "Accounts",
+      items: [
+        { label: "Fee Structure", path: "/admin/fee-structure", icon: "fa-solid fa-money-check-dollar" },
+        { label: "Fee Management", path: "/admin/fees", icon: "fa-solid fa-receipt" },
+        { label: "Pending Verifications", path: "/admin/pending-upi-verifications", icon: "fa-solid fa-circle-check" },
+      ],
+    },
+  ];
 
 export default function AdminLayout() {
   const { user, logout } = useAuth();
@@ -189,6 +191,7 @@ export default function AdminLayout() {
               <Route path="/holidays" element={<Holidays />} />
               <Route path="/fee-structure" element={<FeeStructure />} />
               <Route path="/fees" element={<Fees />} />
+              <Route path="/pending-upi-verifications" element={<PendingUpiVerifications />} />
               <Route path="/announcements" element={<Announcements />} />
               <Route path="/student-notices" element={<StudentNotices />} />
               <Route path="/analytics" element={<Analytics />} />

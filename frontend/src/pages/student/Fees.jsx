@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import api from "../../api/axios";
 import { useAuth } from "../../context/useAuth";
 import SectionTitle from "../../components/SectionTitle";
 import useActiveAcademicYear from "../../hooks/useActiveAcademicYear";
+import Modal from "../../components/Modal";
 import { jsPDF } from "jspdf";
 
 const formatReceiptDate = (date) => {
@@ -59,12 +60,25 @@ const getStudentId = (user) => {
   return rawId ? String(rawId) : "";
 };
 
+const SCHOOL_UPI_ID = import.meta.env.VITE_SCHOOL_UPI_ID || "lemhs@kbl";
+
 export default function StudentFees() {
   const { user } = useAuth();
   const { academicYearLabel } = useActiveAcademicYear(user?.academicYear?.year);
   const [fee, setFee] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
+  const [upiState, setUpiState] = useState({
+    open: false,
+    loading: false,
+    term: null,
+    upiLink: "",
+    qrCodeDataUrl: "",
+    upiTrReference: "",
+    utrNumber: "",
+    error: "",
+  });
 
   const fetchFeeData = async () => {
     const studentId = getStudentId(user);
@@ -90,6 +104,16 @@ export default function StudentFees() {
   useEffect(() => {
     if (user) fetchFeeData();
   }, [user]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 760px)");
+    const sync = () => setIsMobile(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
+  const termItems = useMemo(() => (Array.isArray(fee?.terms) ? [...fee.terms].sort((a, b) => a.termNumber - b.termNumber) : []), [fee]);
 
   const loadRazorpay = () => {
     return new Promise((resolve) => {
@@ -149,6 +173,88 @@ export default function StudentFees() {
       const rzp = new window.Razorpay(options);
       rzp.open();
     } catch (e) { alert("Failed to initiate payment"); }
+  };
+
+  const closeUpiModal = () => {
+    setUpiState(prev => ({ ...prev, open: false, loading: false, error: "" }));
+  };
+
+  const openUpiPayment = async (term) => {
+    if (!term?._id || !fee?._id) return;
+    if (term.paymentStatus === "PAID" || term.status === "Paid") return;
+    if (term.paymentStatus === "PENDING_VERIFICATION") return;
+
+    setUpiState({
+      open: true,
+      loading: true,
+      term,
+      upiLink: "",
+      qrCodeDataUrl: "",
+      upiTrReference: "",
+      utrNumber: "",
+      error: "",
+    });
+
+    try {
+      const { data } = await api.get(`/student-fees/${getStudentId(user)}/upi-link/${term._id}`);
+      setUpiState(prev => ({
+        ...prev,
+        loading: false,
+        upiLink: data.upiLink,
+        qrCodeDataUrl: data.qrCodeDataUrl,
+        upiTrReference: data.upiTrReference || "",
+      }));
+    } catch (e) {
+      setUpiState(prev => ({
+        ...prev,
+        loading: false,
+        error: e.response?.data?.message || "Unable to load UPI payment details."
+      }));
+    }
+  };
+
+  const submitUpiClaim = async () => {
+    const term = upiState.term;
+    if (!term?._id) return;
+    const utr = String(upiState.utrNumber || "").trim();
+
+    if (!/^\d{10,12}$/.test(utr)) {
+      setUpiState(prev => ({ ...prev, error: "UTR number must be 10 to 12 digits." }));
+      return;
+    }
+
+    try {
+      const { data } = await api.post(`/student-fees/${getStudentId(user)}/terms/${term._id}/claim-payment`, {
+        utrNumber: utr
+      });
+
+      alert("Payment claim submitted for admin verification.");
+      setFee(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          terms: (prev.terms || []).map(t => t._id === term._id ? { ...t, ...data.term } : t)
+        };
+      });
+      closeUpiModal();
+      fetchFeeData();
+    } catch (e) {
+      setUpiState(prev => ({ ...prev, error: e.response?.data?.message || "Failed to submit payment claim." }));
+    }
+  };
+
+  const getTermStatusLabel = (term) => {
+    if (term.paymentStatus === "PENDING_VERIFICATION") return "Pending Verification";
+    if (term.paymentStatus === "PAID" || term.status === "Paid") return "Paid";
+    if (term.paymentStatus === "REJECTED") return "Rejected";
+    return "Unpaid";
+  };
+
+  const getTermStatusStyle = (term) => {
+    if (term.paymentStatus === "PENDING_VERIFICATION") return s.badgePending;
+    if (term.paymentStatus === "PAID" || term.status === "Paid") return s.badgePaid;
+    if (term.paymentStatus === "REJECTED") return s.badgeRejected;
+    return s.badgeUnpaid;
   };
 
   const generatePDF = async (payment) => {
@@ -365,6 +471,47 @@ export default function StudentFees() {
         </div>
       </div>
 
+      <h3 style={s.sectionTitle}>Term Payment Options</h3>
+      <div style={s.termGrid} className="student-term-grid">
+        {termItems.length === 0 && (
+          <div style={s.emptyTermBox}>Term-wise fee records are not available yet.</div>
+        )}
+        {termItems.map(term => {
+          const statusLabel = getTermStatusLabel(term);
+          const statusStyle = getTermStatusStyle(term);
+          const canUseUpi = !(term.paymentStatus === "PENDING_VERIFICATION" || term.paymentStatus === "PAID" || term.status === "Paid");
+          return (
+            <div key={term._id} style={s.termCard} className="student-term-card">
+              <div style={s.termHeader}>
+                <div>
+                  <div style={s.termTitle}>{term.termName}</div>
+                  <div style={s.termSub}>Amount: ₹{Number(term.amount || 0).toLocaleString("en-IN")}</div>
+                </div>
+                <span style={{ ...s.termBadge, ...statusStyle }}>{statusLabel}</span>
+              </div>
+
+              {canUseUpi ? (
+                <div style={s.termActions} className="student-term-actions">
+                  <button type="button" style={s.upiButton} onClick={() => openUpiPayment(term)}>
+                    Pay via UPI (Direct)
+                  </button>
+                  <button
+                    type="button"
+                    style={s.rzpButton}
+                    onClick={() => handlePayment(term.amount, `${term.termName} Payment`)}
+                    disabled={fee.totalDue <= 0}
+                  >
+                    Pay with Razorpay
+                  </button>
+                </div>
+              ) : (
+                <div style={s.termStatusLocked}>{statusLabel}</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
       {/* Payment History */}
       {fee.terms?.filter(t => t.status === "Paid").length > 0 && (
         <div style={s.historySection} className="student-table-card">
@@ -397,6 +544,62 @@ export default function StudentFees() {
           </table>
         </div>
       )}
+
+      <Modal
+        isOpen={upiState.open}
+        onClose={closeUpiModal}
+        title={`UPI Payment - ${upiState.term?.termName || ""}`}
+        subtitle="Pay to the school UPI ID, then submit the UTR/reference number for manual verification."
+        maxWidth="760px"
+      >
+        <div style={s.upiModalBody} className="student-upi-modal">
+          {upiState.loading ? (
+            <div style={s.upiLoading}>Loading UPI payment details...</div>
+          ) : (
+            <>
+              {upiState.error && <div style={s.upiError}>{upiState.error}</div>}
+              <div style={s.upiInfoGrid} className="student-upi-info-grid">
+                <div style={s.upiInfoCard}>
+                  <div style={s.upiInfoLabel}>UPI ID</div>
+                  <div style={s.upiInfoValue}>{SCHOOL_UPI_ID}</div>
+                </div>
+                <div style={s.upiInfoCard}>
+                  <div style={s.upiInfoLabel}>Reference</div>
+                  <div style={s.upiInfoValue}>{upiState.upiTrReference || "Generating..."}</div>
+                </div>
+              </div>
+
+              {isMobile ? (
+                <a href={upiState.upiLink} style={s.upiDeepLink} onClick={closeUpiModal}>
+                  Open in UPI App
+                </a>
+              ) : (
+                <div style={s.qrWrap}>
+                  {upiState.qrCodeDataUrl ? (
+                    <img src={upiState.qrCodeDataUrl} alt="UPI QR code" style={s.qrImg} />
+                  ) : (
+                    <div style={s.qrPlaceholder}>QR code will appear here.</div>
+                  )}
+                </div>
+              )}
+
+              <div style={s.claimBox}>
+                <label style={s.claimLabel}>Enter UTR / reference number after paying</label>
+                <input
+                  type="text"
+                  value={upiState.utrNumber}
+                  onChange={e => setUpiState(prev => ({ ...prev, utrNumber: e.target.value }))}
+                  placeholder="10 to 12 digit UTR"
+                  style={s.claimInput}
+                />
+                <button type="button" onClick={submitUpiClaim} style={s.claimBtn}>
+                  Submit for Verification
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -433,4 +636,34 @@ const s = {
   th: { textAlign: 'left', padding: '16px', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: '2px solid var(--border)', fontWeight: '800' },
   td: { padding: '16px', borderBottom: '1px solid var(--border)', color: 'var(--navy)', fontWeight: '600' },
   btnSmall: { padding: '8px 16px', borderRadius: '30px', border: '1.5px solid var(--navy)', background: 'white', color: 'var(--navy)', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }
+  ,termGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "18px", marginBottom: "40px" },
+  termCard: { background: "white", borderRadius: "18px", border: "1px solid var(--border)", padding: "20px", boxShadow: "var(--shadow-sm)" },
+  termHeader: { display: "flex", justifyContent: "space-between", gap: "14px", alignItems: "flex-start", marginBottom: "16px" },
+  termTitle: { fontSize: "1.05rem", fontWeight: "900", color: "var(--navy)" },
+  termSub: { marginTop: "4px", fontSize: "0.82rem", color: "var(--text-muted)", fontWeight: "600" },
+  termBadge: { fontSize: "0.65rem", padding: "5px 10px", borderRadius: "999px", fontWeight: "900", textTransform: "uppercase", whiteSpace: "nowrap" },
+  badgeUnpaid: { background: "#fee2e2", color: "#991b1b" },
+  badgePending: { background: "#fef3c7", color: "#92400e" },
+  badgePaid: { background: "#dcfce7", color: "#166534" },
+  badgeRejected: { background: "#e5e7eb", color: "#374151" },
+  termActions: { display: "flex", gap: "12px", flexWrap: "wrap" },
+  upiButton: { flex: 1, minWidth: "180px", padding: "14px 16px", borderRadius: "18px", border: "1px solid #0e6b6b", background: "rgba(14,107,107,0.08)", color: "var(--navy)", fontWeight: "800", cursor: "pointer" },
+  rzpButton: { flex: 1, minWidth: "180px", padding: "14px 16px", borderRadius: "18px", border: "none", background: "linear-gradient(135deg, var(--gold), var(--gold-light))", color: "var(--navy-dark)", fontWeight: "800", cursor: "pointer" },
+  termStatusLocked: { padding: "14px 16px", borderRadius: "18px", background: "var(--light-bg)", color: "var(--navy)", fontWeight: "800", textAlign: "center" },
+  emptyTermBox: { gridColumn: "1 / -1", padding: "24px", borderRadius: "16px", border: "1px dashed var(--border)", color: "var(--text-muted)", textAlign: "center", fontWeight: "700" },
+  upiModalBody: { display: "flex", flexDirection: "column", gap: "18px" },
+  upiLoading: { padding: "24px", textAlign: "center", color: "var(--navy)", fontWeight: "800" },
+  upiError: { background: "var(--danger-bg)", color: "var(--danger-text)", border: "1px solid var(--danger-text)", padding: "12px 16px", borderRadius: "12px", fontWeight: "800" },
+  upiInfoGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px" },
+  upiInfoCard: { background: "var(--light-bg)", borderRadius: "14px", padding: "14px 16px", border: "1px solid var(--border)" },
+  upiInfoLabel: { fontSize: "0.72rem", textTransform: "uppercase", color: "var(--text-muted)", fontWeight: "900", marginBottom: "6px" },
+  upiInfoValue: { fontWeight: "800", color: "var(--navy)", wordBreak: "break-word" },
+  qrWrap: { display: "flex", justifyContent: "center", padding: "10px" },
+  qrImg: { width: "280px", maxWidth: "100%", height: "auto", borderRadius: "16px", border: "1px solid var(--border)", background: "white" },
+  qrPlaceholder: { padding: "40px 20px", borderRadius: "16px", border: "1px dashed var(--border)", color: "var(--text-muted)", fontWeight: "700" },
+  claimBox: { display: "flex", flexDirection: "column", gap: "10px" },
+  claimLabel: { fontSize: "0.75rem", textTransform: "uppercase", color: "var(--gold)", fontWeight: "900" },
+  claimInput: { padding: "12px 14px", borderRadius: "12px", border: "1.5px solid var(--border)", fontWeight: "600", color: "var(--navy)" },
+  claimBtn: { padding: "14px 16px", borderRadius: "18px", border: "none", background: "var(--navy)", color: "var(--gold-light)", fontWeight: "800", cursor: "pointer" },
+  upiDeepLink: { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "14px 16px", borderRadius: "18px", background: "var(--navy)", color: "var(--gold-light)", fontWeight: "800", textDecoration: "none" }
 };

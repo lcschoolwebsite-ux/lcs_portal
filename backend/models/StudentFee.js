@@ -18,14 +18,25 @@ const studentFeeSchema = new mongoose.Schema({
       termName: { type: String, required: true },
       amount: { type: Number, required: true },
       status: { type: String, enum: ["Paid", "Unpaid"], default: "Unpaid" },
+      paymentStatus: {
+        type: String,
+        enum: ["UNPAID", "PENDING_VERIFICATION", "PAID", "REJECTED"],
+        default: "UNPAID"
+      },
       paidDate: { type: String },
       paidAmount: { type: Number, default: 0 },
-      method: { type: String, enum: ["Cash", "Cheque", "Online", "DD", "Bank Transfer"] },
+      method: { type: String, enum: ["Cash", "Cheque", "Online", "DD", "Bank Transfer", "upi_manual"] },
       receiptNumber: { type: String },
       razorpayOrderId: { type: String },
       razorpayPaymentId: { type: String },
       razorpaySignature: { type: String },
-      receiptGeneratedAt: { type: Date }
+      receiptGeneratedAt: { type: Date },
+      upiTrReference: { type: String, trim: true, default: "" },
+      utrNumber: { type: String, trim: true, default: "" },
+      claimedAt: { type: Date, default: null },
+      verifiedAt: { type: Date, default: null },
+      verifiedByAdminId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+      rejectionReason: { type: String, trim: true, default: "" }
     }
   ],
   totalPaid: { type: Number, default: 0 },
@@ -39,7 +50,7 @@ const studentFeeSchema = new mongoose.Schema({
 
 studentFeeSchema.pre("save", function(next) {
   this.totalPaid = this.terms
-    .filter(t => t.status === "Paid")
+    .filter(t => t.status === "Paid" || t.paymentStatus === "PAID")
     .reduce((sum, t) => sum + (t.paidAmount || t.amount), 0);
     
   this.totalDue = this.totalAnnualFee - this.totalPaid;
@@ -52,6 +63,17 @@ studentFeeSchema.pre("save", function(next) {
     this.overallStatus = "Unpaid";
   }
   
+  next();
+});
+
+studentFeeSchema.pre("validate", function(next) {
+  this.terms = (this.terms || []).map(term => {
+    if (!term.paymentStatus) {
+      term.paymentStatus = term.status === "Paid" ? "PAID" : "UNPAID";
+    }
+
+    return term;
+  });
   next();
 });
 

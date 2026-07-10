@@ -2,10 +2,15 @@ const StudentFee = require("../models/StudentFee");
 const Student = require("../models/Student");
 const Class = require("../models/Class");
 const AcademicYear = require("../models/AcademicYear");
+const QRCode = require("qrcode");
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const { notifyStudentById } = require("../utils/pushNotification");
+const { getIO } = require("../utils/socket");
 const { canTeachersManageFees } = require("./settingController");
+
+const SCHOOL_UPI_ID = process.env.SCHOOL_UPI_ID || "lemhs@kbl";
+const SCHOOL_NAME = process.env.SCHOOL_NAME || "Loretto Central School";
 
 const hasRazorpayCredentials = () =>
   Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
@@ -42,6 +47,84 @@ const getStudentIdsForClasses = async classIds => {
   if (!Array.isArray(classIds) || classIds.length === 0) return [];
   const students = await Student.find({ class: { $in: classIds } }).select("_id").lean();
   return students.map(student => student._id);
+};
+
+const normalizeLabel = value =>
+  String(value || "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9-_]/g, "")
+    .replace(/-+/g, "-");
+
+const getTermLabel = term =>
+  normalizeLabel(term?.termName || `TERM${term?.termNumber || ""}`);
+
+const buildUpiLink = ({ amount, studentId, termLabel }) => {
+  const reference = `${studentId}-${termLabel}`;
+  const params = new URLSearchParams({
+    pa: SCHOOL_UPI_ID,
+    pn: SCHOOL_NAME,
+    am: String(Number(amount || 0).toFixed(2)),
+    tn: `Fee${termLabel}`,
+    tr: reference,
+    cu: "INR"
+  });
+
+  return {
+    upiLink: `upi://pay?${params.toString()}`,
+    upiTrReference: reference
+  };
+};
+
+const findStudentFeeRecord = async ({ studentId, academicYear }) => {
+  const query = { student: studentId };
+  if (academicYear) query.academicYear = academicYear;
+
+  return StudentFee.findOne(query)
+    .sort({ updatedAt: -1 })
+    .populate({
+      path: "student",
+      select: "name satCode penCode class",
+      populate: { path: "class", select: "name section" }
+    })
+    .populate("academicYear", "year")
+    .populate({
+      path: "feeStructure",
+      populate: { path: "feeItems.feeType" }
+    });
+};
+
+const findTermById = (fee, termId) =>
+  (fee?.terms || []).find(term => String(term._id) === String(termId));
+
+const ensureStudentOwnership = (req, studentId) => {
+  if (req.user.role === "student" && String(req.user.id) !== String(studentId)) {
+    const err = new Error("Unauthorized");
+    err.status = 403;
+    throw err;
+  }
+};
+
+const ensureTeacherClassAccessForFee = async (req, fee) => {
+  if (req.user.role !== "teacher") return;
+  const teacherAccess = await ensureTeacherFeeAccess(req);
+  const studentClassId = toObjectIdString(fee.student?.class?._id || fee.student?.class || "");
+  if (!teacherAccess.classIds.includes(studentClassId)) {
+    const err = new Error("Access denied for this student");
+    err.status = 403;
+    throw err;
+  }
+};
+
+const persistUpiReferenceIfNeeded = async (fee, term, studentId) => {
+  if (!term) return "";
+
+  if (!term.upiTrReference) {
+    term.upiTrReference = `${String(studentId)}-${getTermLabel(term)}`;
+    await fee.save();
+  }
+
+  return term.upiTrReference;
 };
 
 exports.getAll = async (req, res) => {
@@ -164,6 +247,277 @@ exports.getByStudentId = async (req, res) => {
     res.json(fee);
   } catch (e) {
     res.status(500).json({ message: e.message });
+  }
+};
+
+exports.getUpiLink = async (req, res) => {
+  try {
+    const { studentId, termId } = req.params;
+    ensureStudentOwnership(req, studentId);
+
+    const fee = await findStudentFeeRecord({
+      studentId,
+      academicYear: req.query.academicYear
+    });
+
+    if (!fee) {
+      return res.status(404).json({ message: "Fee record not found" });
+    }
+
+    if (req.user.role === "teacher") {
+      await ensureTeacherClassAccessForFee(req, fee);
+    }
+
+    const term = findTermById(fee, termId);
+    if (!term) {
+      return res.status(404).json({ message: "Term not found" });
+    }
+
+    const termLabel = getTermLabel(term);
+    const upiTrReference = await persistUpiReferenceIfNeeded(fee, term, studentId);
+    const { upiLink } = buildUpiLink({
+      amount: term.amount,
+      studentId,
+      termLabel
+    });
+
+    const qrCodeDataUrl = await QRCode.toDataURL(upiLink, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 280
+    });
+
+    res.json({
+      upiLink,
+      qrCodeDataUrl,
+      upiTrReference,
+      amount: term.amount,
+      term: {
+        _id: term._id,
+        termNumber: term.termNumber,
+        termName: term.termName,
+        amount: term.amount,
+        paymentStatus: term.paymentStatus || (term.status === "Paid" ? "PAID" : "UNPAID"),
+        utrNumber: term.utrNumber || "",
+        claimedAt: term.claimedAt || null,
+        verifiedAt: term.verifiedAt || null,
+        rejectionReason: term.rejectionReason || ""
+      }
+    });
+  } catch (e) {
+    res.status(e.status || 500).json({ message: e.message });
+  }
+};
+
+exports.claimUpiPayment = async (req, res) => {
+  try {
+    const { studentId, termId } = req.params;
+    const utrNumber = String(req.body?.utrNumber || "").trim();
+    ensureStudentOwnership(req, studentId);
+
+    if (!/^\d{10,12}$/.test(utrNumber)) {
+      return res.status(400).json({ message: "UTR number must be 10 to 12 digits" });
+    }
+
+    const fee = await findStudentFeeRecord({
+      studentId,
+      academicYear: req.query.academicYear
+    });
+
+    if (!fee) {
+      return res.status(404).json({ message: "Fee record not found" });
+    }
+
+    const term = findTermById(fee, termId);
+    if (!term) {
+      return res.status(404).json({ message: "Term not found" });
+    }
+
+    if (term.paymentStatus === "PAID" || term.status === "Paid") {
+      return res.status(400).json({ message: "This term is already paid" });
+    }
+
+    if (term.paymentStatus === "PENDING_VERIFICATION") {
+      return res.status(400).json({ message: "This payment is already pending verification" });
+    }
+
+    term.paymentStatus = "PENDING_VERIFICATION";
+    term.status = "Unpaid";
+    term.utrNumber = utrNumber;
+    term.claimedAt = new Date();
+    term.verifiedAt = null;
+    term.verifiedByAdminId = null;
+    term.rejectionReason = "";
+    if (!term.upiTrReference) {
+      term.upiTrReference = `${String(studentId)}-${getTermLabel(term)}`;
+    }
+
+    await fee.save();
+
+    res.json({
+      message: "Payment claim submitted for verification",
+      term: {
+        _id: term._id,
+        termNumber: term.termNumber,
+        termName: term.termName,
+        amount: term.amount,
+        paymentStatus: term.paymentStatus,
+        utrNumber: term.utrNumber,
+        claimedAt: term.claimedAt,
+        verifiedAt: term.verifiedAt,
+        rejectionReason: term.rejectionReason,
+        upiTrReference: term.upiTrReference
+      }
+    });
+  } catch (e) {
+    res.status(e.status || 400).json({ message: e.message });
+  }
+};
+
+exports.getPendingUpiVerifications = async (req, res) => {
+  try {
+    const fees = await StudentFee.find({
+      terms: { $elemMatch: { paymentStatus: "PENDING_VERIFICATION" } }
+    })
+      .populate({
+        path: "student",
+        select: "name satCode class",
+        populate: { path: "class", select: "name section" }
+      })
+      .populate("academicYear", "year")
+      .lean();
+
+    const pending = fees.flatMap(fee =>
+      (fee.terms || [])
+        .filter(term => term.paymentStatus === "PENDING_VERIFICATION")
+        .map(term => ({
+          studentFeeId: fee._id,
+          studentId: fee.student?._id,
+          studentName: fee.student?.name || "",
+          satCode: fee.student?.satCode || "",
+          className: fee.student?.class?.name || "",
+          section: fee.student?.class?.section || "",
+          academicYear: fee.academicYear?.year || "",
+          termId: term._id,
+          termNumber: term.termNumber,
+          termName: term.termName,
+          amount: term.amount,
+          utrNumber: term.utrNumber || "",
+          claimedAt: term.claimedAt || null,
+          upiTrReference: term.upiTrReference || "",
+          paymentStatus: term.paymentStatus
+        }))
+    ).sort((a, b) => new Date(b.claimedAt || 0) - new Date(a.claimedAt || 0));
+
+    res.json(pending);
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+};
+
+exports.verifyUpiPayment = async (req, res) => {
+  try {
+    const { studentId, termId } = req.params;
+    const action = String(req.body?.action || "").trim();
+    const rejectionReason = String(req.body?.rejectionReason || "").trim();
+
+    if (!["confirm", "reject"].includes(action)) {
+      return res.status(400).json({ message: "Invalid action" });
+    }
+
+    const fee = await findStudentFeeRecord({
+      studentId,
+      academicYear: req.query.academicYear
+    });
+
+    if (!fee) {
+      return res.status(404).json({ message: "Fee record not found" });
+    }
+
+    const term = findTermById(fee, termId);
+    if (!term) {
+      return res.status(404).json({ message: "Term not found" });
+    }
+
+    if (term.paymentStatus !== "PENDING_VERIFICATION") {
+      return res.status(400).json({ message: "This term is not pending verification" });
+    }
+
+    const now = new Date();
+    term.verifiedAt = now;
+    term.verifiedByAdminId = req.user.id;
+
+    if (action === "confirm") {
+      term.paymentStatus = "PAID";
+      term.status = "Paid";
+      term.paidAmount = Number(term.amount || 0);
+      term.paidDate = now.toISOString().split("T")[0];
+      term.method = "upi_manual";
+      term.receiptNumber = `UPI-MAN-${Date.now()}`;
+      term.receiptGeneratedAt = now;
+      term.rejectionReason = "";
+      await fee.save();
+
+      const studentIdString = String(fee.student?._id || fee.student || studentId);
+      await notifyStudentById(
+        studentIdString,
+        "Fee payment confirmed",
+        `Your UPI payment for ${term.termName} has been verified successfully.`,
+        { url: "/student/fees" }
+      ).catch(error => console.warn("UPI payment notification failed:", error.message));
+
+      try {
+        const io = getIO();
+        const payload = {
+          studentId: studentIdString,
+          studentName: fee.student?.name || "",
+          termName: term.termName,
+          amount: Number(term.amount || 0),
+          method: "upi_manual"
+        };
+        io.to(studentIdString).emit("fee-paid", payload);
+        io.to("admin").emit("fee-paid", payload);
+      } catch (socketError) {
+        console.warn("UPI fee socket emit skipped:", socketError.message);
+      }
+
+      return res.json({
+        message: "Payment confirmed",
+        fee,
+        term: {
+          _id: term._id,
+          termNumber: term.termNumber,
+          termName: term.termName,
+          amount: term.amount,
+          paymentStatus: term.paymentStatus,
+          paidAmount: term.paidAmount,
+          paidDate: term.paidDate,
+          method: term.method
+        }
+      });
+    }
+
+    term.paymentStatus = "REJECTED";
+    term.status = "Unpaid";
+    term.paidAmount = 0;
+    term.paidDate = null;
+    term.rejectionReason = rejectionReason || "Rejected by administrator";
+    await fee.save();
+
+    res.json({
+      message: "Payment rejected",
+      fee,
+      term: {
+        _id: term._id,
+        termNumber: term.termNumber,
+        termName: term.termName,
+        amount: term.amount,
+        paymentStatus: term.paymentStatus,
+        rejectionReason: term.rejectionReason
+      }
+    });
+  } catch (e) {
+    res.status(e.status || 400).json({ message: e.message });
   }
 };
 
