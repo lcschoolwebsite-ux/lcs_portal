@@ -22,6 +22,7 @@ export default function Fees() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isFeeDetailModalOpen, setIsFeeDetailModalOpen] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
+  const [showStudentList, setShowStudentList] = useState(true);
   const [paymentForm, setPaymentForm] = useState({
     amount: "",
     method: "Cash",
@@ -128,6 +129,9 @@ export default function Fees() {
   useEffect(() => {
     if (!isMobileView) {
       setIsFeeDetailModalOpen(false);
+      setShowStudentList(true);
+    } else {
+      setShowStudentList(false);
     }
   }, [isMobileView]);
 
@@ -163,6 +167,7 @@ export default function Fees() {
   const handleSelectFee = fee => {
     setSelectedFee(fee);
     if (isMobileView) {
+      setShowStudentList(false);
       setIsFeeDetailModalOpen(true);
     }
   };
@@ -322,6 +327,31 @@ export default function Fees() {
 
       <div style={s.mainGrid} className="teacher-fees-grid">
         <div style={s.listPanel} className="teacher-fees-list">
+          {isMobileView && (
+            <div style={s.mobileListHeader} className="teacher-fees-mobile-toggle">
+              <button
+                type="button"
+                onClick={() => setShowStudentList(prev => !prev)}
+                style={s.mobileListToggle}
+              >
+                <span>
+                  <i className={`fa-solid ${showStudentList ? "fa-chevron-up" : "fa-chevron-down"}`}></i>
+                  {showStudentList ? "Hide Student List" : "Show Student List"}
+                </span>
+                <small>{selectedFee ? `Selected: ${selectedFee.student?.name || "Student"}` : "Tap to browse students"}</small>
+              </button>
+            </div>
+          )}
+
+          {isMobileView && !showStudentList && (
+            <div style={s.mobileListCollapsed} className="teacher-fees-list-collapsed">
+              <div style={s.mobileListCollapsedTitle}>Student list hidden</div>
+              <div style={s.mobileListCollapsedSub}>Tap the button above if you want to switch students.</div>
+            </div>
+          )}
+
+          {(!isMobileView || showStudentList) && (
+            <>
           {loading && <div style={s.emptyBox}>Loading fee records...</div>}
           {!loading && !teacherClasses.length && (
             <div style={s.emptyBox}>You are not assigned as class teacher for any class yet.</div>
@@ -355,6 +385,8 @@ export default function Fees() {
               </div>
             </div>
           ))}
+            </>
+          )}
         </div>
 
         <div style={s.detailPanel} className="teacher-fees-detail">
@@ -476,5 +508,10 @@ const s = {
   fLabel: { fontSize: "0.75rem", fontWeight: "800", color: "var(--gold)", textTransform: "uppercase" },
   input: { padding: "12px", borderRadius: "10px", border: "1.5px solid var(--border)", background: "white", color: "var(--navy)", fontWeight: "600", width: "100%" },
   btnCancel: { padding: "12px 24px", borderRadius: "30px", border: "none", background: "var(--light-bg)", color: "var(--text-muted)", fontWeight: "700", cursor: "pointer" },
-  btnConfirm: { flex: 1, padding: "12px 24px", borderRadius: "30px", border: "none", background: "linear-gradient(135deg, var(--gold), var(--gold-light))", color: "var(--navy-dark)", fontWeight: "800", cursor: "pointer" }
+  btnConfirm: { flex: 1, padding: "12px 24px", borderRadius: "30px", border: "none", background: "linear-gradient(135deg, var(--gold), var(--gold-light))", color: "var(--navy-dark)", fontWeight: "800", cursor: "pointer" },
+  mobileListHeader: { marginBottom: "12px" },
+  mobileListToggle: { width: "100%", border: "1px solid rgba(14,107,107,0.16)", background: "linear-gradient(135deg, rgba(14,107,107,0.08), rgba(255,255,255,0.95))", color: "var(--navy)", borderRadius: "14px", padding: "14px 16px", fontWeight: "800", textAlign: "left", display: "flex", flexDirection: "column", gap: "4px", cursor: "pointer" },
+  mobileListCollapsed: { padding: "18px", borderRadius: "14px", background: "var(--gold-pale)", border: "1px dashed rgba(14,107,107,0.2)", color: "var(--navy-dark)", textAlign: "center" },
+  mobileListCollapsedTitle: { fontWeight: "900", marginBottom: "4px" },
+  mobileListCollapsedSub: { fontSize: "0.82rem", color: "var(--text-muted)" }
 };
