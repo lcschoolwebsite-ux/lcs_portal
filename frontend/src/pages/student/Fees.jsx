@@ -76,6 +76,7 @@ export default function StudentFees() {
     upiLink: "",
     qrCodeDataUrl: "",
     upiTrReference: "",
+    payeeVpa: "",
     utrNumber: "",
     error: "",
   });
@@ -132,6 +133,7 @@ export default function StudentFees() {
       upiLink: "",
       qrCodeDataUrl: "",
       upiTrReference: "",
+      payeeVpa: "",
       utrNumber: "",
       error: "",
     });
@@ -144,6 +146,7 @@ export default function StudentFees() {
         upiLink: data.upiLink,
         qrCodeDataUrl: data.qrCodeDataUrl,
         upiTrReference: data.upiTrReference || "",
+        payeeVpa: data.payeeVpa || "",
       }));
     } catch (e) {
       setUpiState(prev => ({
@@ -185,6 +188,7 @@ export default function StudentFees() {
       upiLink: "",
       qrCodeDataUrl: "",
       upiTrReference: "",
+      payeeVpa: "",
       utrNumber: "",
       error: "",
     });
@@ -199,6 +203,7 @@ export default function StudentFees() {
         upiLink: data.upiLink,
         qrCodeDataUrl: data.qrCodeDataUrl,
         upiTrReference: data.upiTrReference || "",
+        payeeVpa: data.payeeVpa || "",
       }));
     } catch (e) {
       setUpiState(prev => ({
@@ -539,7 +544,7 @@ export default function StudentFees() {
               <div style={s.upiInfoGrid} className="student-upi-info-grid">
                 <div style={s.upiInfoCard}>
                   <div style={s.upiInfoLabel}>UPI ID</div>
-                  <div style={s.upiInfoValue}>{SCHOOL_UPI_ID}</div>
+                  <div style={s.upiInfoValue}>{upiState.payeeVpa || SCHOOL_UPI_ID}</div>
                 </div>
                 <div style={s.upiInfoCard}>
                   <div style={s.upiInfoLabel}>Reference</div>

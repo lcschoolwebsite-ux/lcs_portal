@@ -11,6 +11,7 @@ const { canTeachersManageFees } = require("./settingController");
 
 const SCHOOL_UPI_ID = process.env.SCHOOL_UPI_ID || "lemhs@kbl";
 const SCHOOL_NAME = process.env.SCHOOL_NAME || "Loreto English Medium High School General Fees Account";
+const TEST_UPI_VPA = process.env.TEST_UPI_VPA || SCHOOL_UPI_ID;
 
 const hasRazorpayCredentials = () =>
   Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
@@ -64,9 +65,9 @@ const makeUpiReference = (...parts) => {
   return `UPI${digest}`;
 };
 
-const buildUpiLink = ({ amount, reference, note }) => {
+const buildUpiLink = ({ amount, reference, note, payeeVpa }) => {
   const params = new URLSearchParams({
-    pa: SCHOOL_UPI_ID,
+    pa: payeeVpa || SCHOOL_UPI_ID,
     pn: SCHOOL_NAME,
     am: String(Number(amount || 0).toFixed(2)),
     tn: note || "Test Payment",
@@ -352,7 +353,8 @@ exports.getTestUpiLink = async (req, res) => {
     const { upiLink } = buildUpiLink({
       amount,
       reference: upiTrReference,
-      note: label || "Test Payment"
+      note: label || "Test Payment",
+      payeeVpa: TEST_UPI_VPA
     });
 
     const qrCodeDataUrl = await QRCode.toDataURL(upiLink, {
@@ -365,6 +367,7 @@ exports.getTestUpiLink = async (req, res) => {
       upiLink,
       qrCodeDataUrl,
       upiTrReference,
+      payeeVpa: TEST_UPI_VPA,
       amount,
       term: {
         _id: "test",
