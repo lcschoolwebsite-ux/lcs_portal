@@ -293,11 +293,12 @@ export default function Fees() {
                </div>
 
                <div style={s.sectionTitle}>Transaction History</div>
-               {selectedFee.terms.filter(t => t.status === "Paid").length > 0 ? (
+               {selectedFee.terms.filter(t => Number(t.paidAmount || 0) > 0).length > 0 ? (
                  <table style={s.table}>
                     <thead>
                       <tr>
                         <th style={s.th}>Description</th>
+                        <th style={s.th}>Status</th>
                         <th style={s.th}>Amount</th>
                         <th style={s.th}>Method</th>
                         <th style={s.th}>Date</th>
@@ -305,9 +306,14 @@ export default function Fees() {
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedFee.terms.filter(t => t.status === "Paid").reverse().map((term, idx) => (
+                      {selectedFee.terms.filter(t => Number(t.paidAmount || 0) > 0).reverse().map((term, idx) => (
                         <tr key={idx}>
                           <td style={s.td}>{term.termName}</td>
+                          <td style={s.td}>
+                            <span style={{ ...s.statusBadge, ...(term.paymentStatus === "PARTIALLY_PAID" || term.status === "Partial" ? s.bgPartial : s.bgPaid) }}>
+                              {term.paymentStatus === "PARTIALLY_PAID" || term.status === "Partial" ? "Partial" : "Paid"}
+                            </span>
+                          </td>
                           <td style={s.td}>₹{Number(term.paidAmount || 0).toLocaleString()}</td>
                           <td style={s.td}>{term.method}</td>
                           <td style={s.td}>{term.paidDate}</td>

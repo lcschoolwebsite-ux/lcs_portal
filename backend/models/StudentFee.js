@@ -17,10 +17,10 @@ const studentFeeSchema = new mongoose.Schema({
       termNumber: { type: Number, required: true },
       termName: { type: String, required: true },
       amount: { type: Number, required: true },
-      status: { type: String, enum: ["Paid", "Unpaid"], default: "Unpaid" },
+      status: { type: String, enum: ["Paid", "Partial", "Unpaid"], default: "Unpaid" },
       paymentStatus: {
         type: String,
-        enum: ["UNPAID", "PENDING_VERIFICATION", "PAID", "REJECTED"],
+        enum: ["UNPAID", "PENDING_VERIFICATION", "PARTIALLY_PAID", "PAID", "REJECTED"],
         default: "UNPAID"
       },
       paidDate: { type: String },
@@ -33,6 +33,9 @@ const studentFeeSchema = new mongoose.Schema({
       receiptGeneratedAt: { type: Date },
       upiTrReference: { type: String, trim: true, default: "" },
       utrNumber: { type: String, trim: true, default: "" },
+      claimedAmount: { type: Number, default: 0 },
+      screenshotUrl: { type: String, trim: true, default: "" },
+      screenshotPublicId: { type: String, trim: true, default: "" },
       claimedAt: { type: Date, default: null },
       verifiedAt: { type: Date, default: null },
       verifiedByAdminId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
@@ -50,11 +53,14 @@ const studentFeeSchema = new mongoose.Schema({
 
 studentFeeSchema.pre("save", function(next) {
   this.totalPaid = this.terms
-    .filter(t => t.status === "Paid" || t.paymentStatus === "PAID")
-    .reduce((sum, t) => sum + (t.paidAmount || t.amount), 0);
-    
+    .reduce((sum, t) => {
+      const confirmed = Number(t.paidAmount || 0);
+      const fallback = (t.status === "Paid" || t.paymentStatus === "PAID") ? Number(t.amount || 0) : 0;
+      return sum + Math.max(confirmed, fallback);
+    }, 0);
+
   this.totalDue = this.totalAnnualFee - this.totalPaid;
-  
+
   if (this.totalDue <= 0) {
     this.overallStatus = "Paid";
   } else if (this.totalPaid > 0) {
@@ -69,7 +75,19 @@ studentFeeSchema.pre("save", function(next) {
 studentFeeSchema.pre("validate", function(next) {
   this.terms = (this.terms || []).map(term => {
     if (!term.paymentStatus) {
-      term.paymentStatus = term.status === "Paid" ? "PAID" : "UNPAID";
+      term.paymentStatus = term.status === "Paid"
+        ? "PAID"
+        : term.status === "Partial"
+          ? "PARTIALLY_PAID"
+          : "UNPAID";
+    }
+
+    if (!term.status) {
+      term.status = term.paymentStatus === "PAID"
+        ? "Paid"
+        : term.paymentStatus === "PARTIALLY_PAID"
+          ? "Partial"
+          : "Unpaid";
     }
 
     return term;

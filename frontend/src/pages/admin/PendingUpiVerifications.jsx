@@ -112,16 +112,30 @@ export default function PendingUpiVerifications() {
     {
       label: "Amount",
       key: "amount",
-      render: row => <span style={s.amount}>{formatAmount(row.amount)}</span>
+      render: row => (
+        <div>
+          <div style={s.amount}>{formatAmount(row.amount)}</div>
+          <div style={s.amountSub}>Term amount</div>
+        </div>
+      )
     },
     {
-      label: "UTR Entered",
-      key: "utrNumber",
+      label: "Claimed Amount",
+      key: "claimedAmount",
+      render: row => <span style={s.claimAmount}>{formatAmount(row.claimedAmount || row.amount)}</span>
+    },
+    {
+      label: "Screenshot",
+      key: "screenshotUrl",
       render: row => (
-        <div style={s.utrWrap}>
-          <div style={s.utrValue}>{row.utrNumber || "Not entered"}</div>
-          <div style={s.utrRef}>{row.upiTrReference || "No reference"}</div>
-        </div>
+        row.screenshotUrl ? (
+          <a href={row.screenshotUrl} target="_blank" rel="noreferrer" style={s.screenshotLink}>
+            <img src={row.screenshotUrl} alt="Payment screenshot" style={s.screenshotThumb} />
+            <span style={s.screenshotText}>View</span>
+          </a>
+        ) : (
+          <span style={s.screenshotMissing}>No screenshot</span>
+        )
       )
     },
     {
@@ -250,9 +264,8 @@ const s = {
   studentSub: { fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "4px", fontWeight: "600" },
   termTitle: { fontWeight: "800", color: "var(--text)", marginBottom: "8px" },
   amount: { fontWeight: "900", color: "var(--navy)" },
-  utrWrap: { display: "flex", flexDirection: "column", gap: "4px" },
-  utrValue: { fontWeight: "800", color: "var(--text)" },
-  utrRef: { fontSize: "0.76rem", color: "var(--text-muted)", fontWeight: "600" },
+  amountSub: { fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: "600", marginTop: "4px" },
+  claimAmount: { fontWeight: "900", color: "var(--gold)" },
   claimedAt: { fontWeight: "700", color: "var(--text)" },
   actions: { display: "flex", gap: "10px", flexWrap: "wrap" },
   actionBtn: {
@@ -280,5 +293,31 @@ const s = {
     opacity: 0.6,
     cursor: "not-allowed"
   },
-  btnIcon: { fontSize: "0.9rem" }
+  btnIcon: { fontSize: "0.9rem" },
+  screenshotLink: {
+    display: "inline-flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "6px",
+    textDecoration: "none"
+  },
+  screenshotThumb: {
+    width: "84px",
+    height: "112px",
+    objectFit: "cover",
+    borderRadius: "10px",
+    border: "1px solid var(--border)",
+    boxShadow: "var(--shadow-sm)",
+    background: "var(--white)"
+  },
+  screenshotText: {
+    fontSize: "0.75rem",
+    fontWeight: "800",
+    color: "var(--navy)"
+  },
+  screenshotMissing: {
+    fontSize: "0.82rem",
+    color: "var(--text-muted)",
+    fontWeight: "600"
+  }
 };

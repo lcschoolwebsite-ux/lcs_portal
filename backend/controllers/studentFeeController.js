@@ -4,6 +4,7 @@ const Class = require("../models/Class");
 const AcademicYear = require("../models/AcademicYear");
 const QRCode = require("qrcode");
 const Razorpay = require("razorpay");
+const cloudinary = require("cloudinary").v2;
 const crypto = require("crypto");
 const { notifyStudentById } = require("../utils/pushNotification");
 const { getIO } = require("../utils/socket");
@@ -11,6 +12,29 @@ const { canTeachersManageFees } = require("./settingController");
 
 const SCHOOL_UPI_ID = process.env.SCHOOL_UPI_ID || "lemhs@kbl";
 const SCHOOL_NAME = process.env.SCHOOL_NAME || "Loreto English Medium High School General Fees Account";
+
+const configureCloudinary = () => {
+  const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
+    return false;
+  }
+
+  cloudinary.config({
+    cloud_name: CLOUDINARY_CLOUD_NAME,
+    api_key: CLOUDINARY_API_KEY,
+    api_secret: CLOUDINARY_API_SECRET
+  });
+
+  return true;
+};
+
+const uploadBufferToCloudinary = (buffer, options) => new Promise((resolve, reject) => {
+  const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
+    if (error) reject(error);
+    else resolve(result);
+  });
+  stream.end(buffer);
+});
 
 const hasRazorpayCredentials = () =>
   Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
@@ -78,6 +102,33 @@ const buildUpiLink = ({ amount, note }) => {
   };
 };
 
+const getTermConfirmedAmount = term => {
+  const paidAmount = Number(term?.paidAmount || 0);
+  if (paidAmount > 0) return paidAmount;
+  if (term?.status === "Paid" || term?.paymentStatus === "PAID") {
+    return Number(term?.amount || 0);
+  }
+  return 0;
+};
+
+const getTermRemainingAmount = term => {
+  const amount = Number(term?.amount || 0);
+  const remaining = amount - getTermConfirmedAmount(term);
+  return Math.max(0, Number(remaining.toFixed(2)));
+};
+
+const getPendingClaimAmount = term => {
+  const claimed = Number(term?.claimedAmount || 0);
+  if (claimed > 0) return claimed;
+  return getTermRemainingAmount(term);
+};
+
+const normalizeAmount = value => {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return 0;
+  return Math.round(amount * 100) / 100;
+};
+
 const findStudentFeeRecord = async ({ studentId, academicYear }) => {
   const query = { student: studentId };
   if (academicYear) query.academicYear = academicYear;
@@ -127,6 +178,35 @@ const persistUpiReferenceIfNeeded = async (fee, term, studentId) => {
   }
 
   return term.upiTrReference;
+};
+
+const uploadClaimScreenshot = async ({ studentId, termId, file }) => {
+  if (!file?.buffer) {
+    const error = new Error("Payment screenshot is required");
+    error.status = 400;
+    throw error;
+  }
+
+  if (!configureCloudinary()) {
+    const error = new Error("Screenshot upload is not configured on the server");
+    error.status = 503;
+    throw error;
+  }
+
+  const result = await uploadBufferToCloudinary(file.buffer, {
+    folder: "lcsms/upi-payment-screenshots",
+    public_id: `upi-claim-${studentId}-${termId}-${Date.now()}`,
+    overwrite: false,
+    resource_type: "image",
+    transformation: [
+      { width: 1400, crop: "limit", quality: "auto", fetch_format: "auto" }
+    ]
+  });
+
+  return {
+    screenshotUrl: result.secure_url,
+    screenshotPublicId: result.public_id
+  };
 };
 
 exports.getAll = async (req, res) => {
@@ -278,9 +358,15 @@ exports.getUpiLink = async (req, res) => {
       return res.status(404).json({ message: "Term not found" });
     }
 
-    const amount = isBalancePayment ? Number(fee.totalDue || fee.totalAnnualFee || 0) : Number(term.amount || 0);
+    const remainingAmount = isBalancePayment ? Number(fee.totalDue || fee.totalAnnualFee || 0) : getTermRemainingAmount(term);
+    const requestedAmount = normalizeAmount(req.query.amount || remainingAmount);
+    const amount = requestedAmount > 0 ? requestedAmount : remainingAmount;
+
     if (amount <= 0) {
       return res.status(400).json({ message: "No balance due for UPI payment" });
+    }
+    if (amount > remainingAmount) {
+      return res.status(400).json({ message: "Payment amount cannot exceed the remaining due" });
     }
 
     const termLabel = isBalancePayment ? "BALANCE" : getTermLabel(term);
@@ -303,13 +389,18 @@ exports.getUpiLink = async (req, res) => {
       qrCodeDataUrl,
       upiTrReference,
       amount,
+      remainingAmount,
       term: isBalancePayment ? {
         _id: "overall",
         termNumber: 0,
         termName: "Balance Payment",
         amount,
+        remainingAmount,
         paymentStatus: "UNPAID",
         utrNumber: "",
+        claimedAmount: 0,
+        screenshotUrl: "",
+        screenshotPublicId: "",
         claimedAt: null,
         verifiedAt: null,
         rejectionReason: ""
@@ -318,8 +409,12 @@ exports.getUpiLink = async (req, res) => {
         termNumber: term.termNumber,
         termName: term.termName,
         amount: term.amount,
+        remainingAmount,
         paymentStatus: term.paymentStatus || (term.status === "Paid" ? "PAID" : "UNPAID"),
         utrNumber: term.utrNumber || "",
+        claimedAmount: term.claimedAmount || 0,
+        screenshotUrl: term.screenshotUrl || "",
+        screenshotPublicId: term.screenshotPublicId || "",
         claimedAt: term.claimedAt || null,
         verifiedAt: term.verifiedAt || null,
         rejectionReason: term.rejectionReason || ""
@@ -333,11 +428,11 @@ exports.getUpiLink = async (req, res) => {
 exports.claimUpiPayment = async (req, res) => {
   try {
     const { studentId, termId } = req.params;
-    const utrNumber = String(req.body?.utrNumber || "").trim();
     ensureStudentOwnership(req, studentId);
-
-    if (!/^\d{10,12}$/.test(utrNumber)) {
-      return res.status(400).json({ message: "UTR number must be 10 to 12 digits" });
+    const file = req.file;
+    const requestedAmount = normalizeAmount(req.body?.amount || 0);
+    if (!file?.buffer) {
+      return res.status(400).json({ message: "Payment screenshot is required" });
     }
 
     const fee = await findStudentFeeRecord({
@@ -355,21 +450,33 @@ exports.claimUpiPayment = async (req, res) => {
       return res.status(404).json({ message: "Term not found" });
     }
 
+    const remainingAmount = isBalancePayment
+      ? Number(fee.totalDue || fee.totalAnnualFee || 0)
+      : getTermRemainingAmount(term);
+    const claimAmount = requestedAmount > 0 ? requestedAmount : remainingAmount;
+
+    if (claimAmount <= 0) {
+      return res.status(400).json({ message: "No balance due" });
+    }
+    if (claimAmount > remainingAmount) {
+      return res.status(400).json({ message: "Payment amount cannot exceed the remaining due" });
+    }
+
     if (!term && isBalancePayment) {
-      const balanceAmount = Number(fee.totalDue || fee.totalAnnualFee || 0);
-      if (balanceAmount <= 0) {
-        return res.status(400).json({ message: "No balance due" });
-      }
+      const claimScreenshot = await uploadClaimScreenshot({ studentId, termId, file });
 
       fee.terms.push({
         termNumber: (fee.terms || []).length + 1,
         termName: "Balance Payment",
-        amount: balanceAmount,
+        amount: remainingAmount,
         status: "Unpaid",
         paymentStatus: "PENDING_VERIFICATION",
         paidAmount: 0,
         upiTrReference: makeUpiReference(studentId, "BALANCE", String(fee._id || studentId)),
-        utrNumber,
+        utrNumber: "",
+        claimedAmount: claimAmount,
+        screenshotUrl: claimScreenshot.screenshotUrl,
+        screenshotPublicId: claimScreenshot.screenshotPublicId,
         claimedAt: new Date(),
         verifiedAt: null,
         verifiedByAdminId: null,
@@ -386,8 +493,11 @@ exports.claimUpiPayment = async (req, res) => {
           termNumber: term.termNumber,
           termName: term.termName,
           amount: term.amount,
+          claimedAmount: term.claimedAmount,
           paymentStatus: term.paymentStatus,
           utrNumber: term.utrNumber,
+          screenshotUrl: term.screenshotUrl,
+          screenshotPublicId: term.screenshotPublicId,
           claimedAt: term.claimedAt,
           verifiedAt: term.verifiedAt,
           rejectionReason: term.rejectionReason,
@@ -404,9 +514,18 @@ exports.claimUpiPayment = async (req, res) => {
       return res.status(400).json({ message: "This payment is already pending verification" });
     }
 
+    if (term.screenshotPublicId) {
+      cloudinary.uploader.destroy(term.screenshotPublicId).catch(() => {});
+    }
+
+    const claimScreenshot = await uploadClaimScreenshot({ studentId, termId, file });
+
     term.paymentStatus = "PENDING_VERIFICATION";
     term.status = "Unpaid";
-    term.utrNumber = utrNumber;
+    term.utrNumber = "";
+    term.claimedAmount = claimAmount;
+    term.screenshotUrl = claimScreenshot.screenshotUrl;
+    term.screenshotPublicId = claimScreenshot.screenshotPublicId;
     term.claimedAt = new Date();
     term.verifiedAt = null;
     term.verifiedByAdminId = null;
@@ -424,8 +543,11 @@ exports.claimUpiPayment = async (req, res) => {
         termNumber: term.termNumber,
         termName: term.termName,
         amount: term.amount,
+        claimedAmount: term.claimedAmount,
         paymentStatus: term.paymentStatus,
         utrNumber: term.utrNumber,
+        screenshotUrl: term.screenshotUrl,
+        screenshotPublicId: term.screenshotPublicId,
         claimedAt: term.claimedAt,
         verifiedAt: term.verifiedAt,
         rejectionReason: term.rejectionReason,
@@ -466,6 +588,9 @@ exports.getPendingUpiVerifications = async (req, res) => {
           termName: term.termName,
           amount: term.amount,
           utrNumber: term.utrNumber || "",
+          claimedAmount: term.claimedAmount || 0,
+          screenshotUrl: term.screenshotUrl || "",
+          screenshotPublicId: term.screenshotPublicId || "",
           claimedAt: term.claimedAt || null,
           upiTrReference: term.upiTrReference || "",
           paymentStatus: term.paymentStatus
@@ -511,14 +636,20 @@ exports.verifyUpiPayment = async (req, res) => {
     term.verifiedByAdminId = req.user.id;
 
     if (action === "confirm") {
-      term.paymentStatus = "PAID";
-      term.status = "Paid";
-      term.paidAmount = Number(term.amount || 0);
+      const currentPaid = Number(term.paidAmount || 0);
+      const claimAmount = Number(term.claimedAmount || term.amount || 0);
+      const confirmedPaid = Math.min(Number(term.amount || 0), currentPaid + claimAmount);
+      term.paidAmount = confirmedPaid;
+      term.paymentStatus = confirmedPaid >= Number(term.amount || 0) ? "PAID" : "PARTIALLY_PAID";
+      term.status = confirmedPaid >= Number(term.amount || 0) ? "Paid" : "Partial";
       term.paidDate = now.toISOString().split("T")[0];
       term.method = "upi_manual";
       term.receiptNumber = `UPI-MAN-${Date.now()}`;
       term.receiptGeneratedAt = now;
       term.rejectionReason = "";
+      term.claimedAmount = 0;
+      term.claimedAt = null;
+      term.screenshotUrl = term.screenshotUrl || "";
       await fee.save();
 
       const studentIdString = String(fee.student?._id || fee.student || studentId);
@@ -555,15 +686,20 @@ exports.verifyUpiPayment = async (req, res) => {
           paymentStatus: term.paymentStatus,
           paidAmount: term.paidAmount,
           paidDate: term.paidDate,
-          method: term.method
+          method: term.method,
+          claimedAmount: term.claimedAmount || 0,
+          screenshotUrl: term.screenshotUrl || "",
+          screenshotPublicId: term.screenshotPublicId || ""
         }
       });
     }
 
-    term.paymentStatus = "REJECTED";
-    term.status = "Unpaid";
-    term.paidAmount = 0;
-    term.paidDate = null;
+    const hasConfirmedPaid = Number(term.paidAmount || 0) > 0;
+    term.paymentStatus = hasConfirmedPaid ? "PARTIALLY_PAID" : "UNPAID";
+    term.status = hasConfirmedPaid ? "Partial" : "Unpaid";
+    term.paidDate = hasConfirmedPaid ? term.paidDate : null;
+    term.claimedAmount = 0;
+    term.claimedAt = null;
     term.rejectionReason = rejectionReason || "Rejected by administrator";
     await fee.save();
 
@@ -576,6 +712,9 @@ exports.verifyUpiPayment = async (req, res) => {
         termName: term.termName,
         amount: term.amount,
         paymentStatus: term.paymentStatus,
+        claimedAmount: term.claimedAmount || 0,
+        screenshotUrl: term.screenshotUrl || "",
+        screenshotPublicId: term.screenshotPublicId || "",
         rejectionReason: term.rejectionReason
       }
     });

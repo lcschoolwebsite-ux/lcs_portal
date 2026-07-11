@@ -70,14 +70,49 @@ export default function StudentFees() {
   const [upiState, setUpiState] = useState({
     open: false,
     loading: false,
+    phase: "select",
     term: null,
+    selectedAmount: 0,
+    customAmount: "",
     upiLink: "",
     qrCodeDataUrl: "",
     upiTrReference: "",
     payeeVpa: "",
-    utrNumber: "",
+    screenshotFile: null,
+    screenshotName: "",
     error: "",
   });
+
+  const getTermConfirmedAmount = term => {
+    const paidAmount = Number(term?.paidAmount || 0);
+    if (paidAmount > 0) return paidAmount;
+    if (term?.status === "Paid" || term?.paymentStatus === "PAID") {
+      return Number(term?.amount || 0);
+    }
+    return 0;
+  };
+
+  const getTermRemainingAmount = term => {
+    const amount = Number(term?.amount || 0);
+    const remaining = amount - getTermConfirmedAmount(term);
+    return Math.max(0, Math.round(remaining));
+  };
+
+  const getPaymentStatusLabel = (term) => {
+    if (term.paymentStatus === "PENDING_VERIFICATION") return "Pending Verification";
+    if (term.paymentStatus === "PAID" || term.status === "Paid") return "Paid";
+    if (term.paymentStatus === "PARTIALLY_PAID" || term.status === "Partial") return "Partially Paid";
+    if (term.paymentStatus === "REJECTED") return "Rejected";
+    return "Unpaid";
+  };
+
+  const getPaymentStatusStyle = (term) => {
+    if (term.paymentStatus === "PENDING_VERIFICATION") return s.badgePending;
+    if (term.paymentStatus === "PAID" || term.status === "Paid") return s.badgePaid;
+    if (term.paymentStatus === "PARTIALLY_PAID" || term.status === "Partial") return s.badgePartial;
+    if (term.paymentStatus === "REJECTED") return s.badgeRejected;
+    return s.badgeUnpaid;
+  };
 
   const fetchFeeData = async () => {
     const studentId = getStudentId(user);
@@ -115,43 +150,41 @@ export default function StudentFees() {
   const termItems = useMemo(() => (Array.isArray(fee?.terms) ? [...fee.terms].sort((a, b) => a.termNumber - b.termNumber) : []), [fee]);
 
   const closeUpiModal = () => {
-    setUpiState(prev => ({ ...prev, open: false, loading: false, error: "" }));
+    setUpiState(prev => ({
+      ...prev,
+      open: false,
+      loading: false,
+      phase: "select",
+      error: "",
+      screenshotFile: null,
+      screenshotName: "",
+      customAmount: "",
+      selectedAmount: 0
+    }));
   };
 
-  const openUpiPayment = async (term) => {
+  const openUpiPayment = (term) => {
     if (!term?._id || !fee?._id) return;
     if (term.paymentStatus === "PAID" || term.status === "Paid") return;
     if (term.paymentStatus === "PENDING_VERIFICATION") return;
+    const remainingAmount = getTermRemainingAmount(term);
 
     setUpiState({
       open: true,
-      loading: true,
+      loading: false,
+      phase: "select",
       term,
+      selectedAmount: remainingAmount,
+      customAmount: "",
       upiLink: "",
       qrCodeDataUrl: "",
       upiTrReference: "",
       payeeVpa: "",
-      utrNumber: "",
+      screenshotFile: null,
+      screenshotName: "",
       error: "",
     });
 
-    try {
-      const { data } = await api.get(`/student-fees/${getStudentId(user)}/upi-link/${term._id}`);
-      setUpiState(prev => ({
-        ...prev,
-        loading: false,
-        upiLink: data.upiLink,
-        qrCodeDataUrl: data.qrCodeDataUrl,
-        upiTrReference: data.upiTrReference || "",
-        payeeVpa: data.payeeVpa || "",
-      }));
-    } catch (e) {
-      setUpiState(prev => ({
-        ...prev,
-        loading: false,
-        error: e.response?.data?.message || "Unable to load UPI payment details."
-      }));
-    }
   };
 
   const openBalanceUpiPayment = () => {
@@ -159,25 +192,109 @@ export default function StudentFees() {
       _id: "overall",
       termName: "Balance Payment",
       amount: fee?.totalDue || fee?.totalAnnualFee || 0,
+      paidAmount: 0,
       paymentStatus: "UNPAID",
       status: "Unpaid"
     });
   };
 
+  const preparePaymentLink = async (amountOverride) => {
+    const term = upiState.term;
+    if (!term?._id) return;
+    const remainingAmount = getTermRemainingAmount(term);
+    const amount = Math.round(Number(amountOverride || upiState.selectedAmount || remainingAmount) || 0);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setUpiState(prev => ({ ...prev, error: "Enter a valid amount." }));
+      return;
+    }
+    if (amount > remainingAmount) {
+      setUpiState(prev => ({ ...prev, error: "Amount cannot exceed the remaining due." }));
+      return;
+    }
+
+    setUpiState(prev => ({
+      ...prev,
+      loading: true,
+      phase: "pay",
+      selectedAmount: amount,
+      error: "",
+      upiLink: "",
+      qrCodeDataUrl: "",
+      upiTrReference: "",
+      payeeVpa: ""
+    }));
+
+    try {
+      const { data } = await api.get(`/student-fees/${getStudentId(user)}/upi-link/${term._id}`, {
+        params: { amount }
+      });
+      setUpiState(prev => ({
+        ...prev,
+        loading: false,
+        upiLink: data.upiLink,
+        qrCodeDataUrl: data.qrCodeDataUrl,
+        upiTrReference: data.upiTrReference || "",
+        payeeVpa: data.payeeVpa || "",
+        selectedAmount: Number(data.amount || amount)
+      }));
+    } catch (e) {
+      setUpiState(prev => ({
+        ...prev,
+        loading: false,
+        phase: "select",
+        error: e.response?.data?.message || "Unable to load UPI payment details."
+      }));
+    }
+  };
+
+  const choosePresetAmount = async (mode) => {
+    const term = upiState.term;
+    if (!term) return;
+    const remainingAmount = getTermRemainingAmount(term);
+    const nextAmount = mode === "full" ? remainingAmount : Math.max(1, Math.round(remainingAmount / 2));
+    setUpiState(prev => ({
+      ...prev,
+      selectedAmount: nextAmount,
+      customAmount: mode === "custom" ? prev.customAmount : "",
+      error: ""
+    }));
+    if (mode !== "custom") {
+      await preparePaymentLink(nextAmount);
+    }
+  };
+
+  const applyCustomAmount = async () => {
+    await preparePaymentLink(upiState.customAmount);
+  };
+
   const submitUpiClaim = async () => {
     const term = upiState.term;
     if (!term?._id) return;
-    const utr = String(upiState.utrNumber || "").trim();
+    const screenshot = upiState.screenshotFile;
+    const amount = Math.round(Number(upiState.selectedAmount || 0));
 
-    if (!/^\d{10,12}$/.test(utr)) {
-      setUpiState(prev => ({ ...prev, error: "UTR number must be 10 to 12 digits." }));
+    if (!screenshot) {
+      setUpiState(prev => ({ ...prev, error: "Please upload the payment screenshot." }));
+      return;
+    }
+
+    const isValidType = ["image/jpeg", "image/png"].includes(screenshot.type);
+    if (!isValidType) {
+      setUpiState(prev => ({ ...prev, error: "Only JPG or PNG screenshots are allowed." }));
+      return;
+    }
+
+    if (screenshot.size > 5 * 1024 * 1024) {
+      setUpiState(prev => ({ ...prev, error: "Screenshot must be 5 MB or smaller." }));
       return;
     }
 
     try {
-      const { data } = await api.post(`/student-fees/${getStudentId(user)}/terms/${term._id}/claim-payment`, {
-        utrNumber: utr
-      });
+      const formData = new FormData();
+      formData.append("screenshot", screenshot);
+      formData.append("amount", String(amount));
+      const { data } = await api.post(`/student-fees/${getStudentId(user)}/terms/${term._id}/claim-payment`, formData);
 
       alert("Payment claim submitted for admin verification.");
       setFee(prev => {
@@ -192,20 +309,6 @@ export default function StudentFees() {
     } catch (e) {
       setUpiState(prev => ({ ...prev, error: e.response?.data?.message || "Failed to submit payment claim." }));
     }
-  };
-
-  const getTermStatusLabel = (term) => {
-    if (term.paymentStatus === "PENDING_VERIFICATION") return "Pending Verification";
-    if (term.paymentStatus === "PAID" || term.status === "Paid") return "Paid";
-    if (term.paymentStatus === "REJECTED") return "Rejected";
-    return "Unpaid";
-  };
-
-  const getTermStatusStyle = (term) => {
-    if (term.paymentStatus === "PENDING_VERIFICATION") return s.badgePending;
-    if (term.paymentStatus === "PAID" || term.status === "Paid") return s.badgePaid;
-    if (term.paymentStatus === "REJECTED") return s.badgeRejected;
-    return s.badgeUnpaid;
   };
 
   const generatePDF = async (payment) => {
@@ -398,15 +501,22 @@ export default function StudentFees() {
           <div style={s.emptyTermBox}>Term-wise fee records are not available yet.</div>
         )}
         {termItems.map(term => {
-          const statusLabel = getTermStatusLabel(term);
-          const statusStyle = getTermStatusStyle(term);
+          const statusLabel = getPaymentStatusLabel(term);
+          const statusStyle = getPaymentStatusStyle(term);
           const canUseUpi = !(term.paymentStatus === "PENDING_VERIFICATION" || term.paymentStatus === "PAID" || term.status === "Paid");
+          const paidAmount = getTermConfirmedAmount(term);
+          const remainingAmount = getTermRemainingAmount(term);
           return (
             <div key={term._id} style={s.termCard} className="student-term-card">
               <div style={s.termHeader}>
                 <div>
                   <div style={s.termTitle}>{term.termName}</div>
                   <div style={s.termSub}>Amount: ₹{Number(term.amount || 0).toLocaleString("en-IN")}</div>
+                  {paidAmount > 0 && (
+                    <div style={s.termProgress}>
+                      ₹{paidAmount.toLocaleString("en-IN")} of ₹{Number(term.amount || 0).toLocaleString("en-IN")} paid - ₹{remainingAmount.toLocaleString("en-IN")} remaining
+                    </div>
+                  )}
                 </div>
                 <span style={{ ...s.termBadge, ...statusStyle }}>{statusLabel}</span>
               </div>
@@ -426,13 +536,14 @@ export default function StudentFees() {
       </div>
 
       {/* Payment History */}
-      {fee.terms?.filter(t => t.status === "Paid").length > 0 && (
+      {fee.terms?.filter(t => Number(t.paidAmount || 0) > 0).length > 0 && (
         <div style={s.historySection} className="student-table-card">
           <h3 style={s.sectionTitle}>Payment History & Receipts</h3>
           <table style={s.table} className="student-payment-history-table">
             <thead>
               <tr>
                 <th style={s.th}>Description</th>
+                <th style={s.th}>Status</th>
                 <th style={s.th}>Paid Date</th>
                 <th style={s.th}>Amount</th>
                 <th style={s.th}>Method</th>
@@ -440,9 +551,10 @@ export default function StudentFees() {
               </tr>
             </thead>
             <tbody>
-              {fee.terms?.filter(t => t.status === "Paid").reverse().map((pay, idx) => (
+              {fee.terms?.filter(t => Number(t.paidAmount || 0) > 0).reverse().map((pay, idx) => (
                 <tr key={idx} className="student-payment-history-row">
                   <td style={s.td} data-label="Description">{pay.termName}</td>
+                  <td style={s.td} data-label="Status"><span style={{ ...s.termBadge, ...getPaymentStatusStyle(pay) }}>{getPaymentStatusLabel(pay)}</span></td>
                   <td style={s.td} data-label="Paid Date">{pay.paidDate}</td>
                   <td style={s.td} data-label="Amount">₹{pay.paidAmount.toLocaleString()}</td>
                   <td style={s.td} data-label="Method">{pay.method}</td>
@@ -462,53 +574,109 @@ export default function StudentFees() {
         isOpen={upiState.open}
         onClose={closeUpiModal}
         title={`UPI Payment - ${upiState.term?.termName || ""}`}
-        subtitle="Pay to the school UPI ID, then submit the UTR/reference number for manual verification."
+        subtitle="Pay to the school UPI ID, then upload the payment success screenshot for manual verification."
         maxWidth="760px"
       >
         <div style={s.upiModalBody} className="student-upi-modal">
-          {upiState.loading ? (
-            <div style={s.upiLoading}>Loading UPI payment details...</div>
+          {upiState.error && <div style={s.upiError}>{upiState.error}</div>}
+
+          {upiState.phase === "select" ? (
+            <>
+              <div style={s.amountChooser}>
+                <div style={s.amountChooserTitle}>Choose how much to pay</div>
+                <div style={s.amountChooserSub}>
+                  Remaining due: ₹{getTermRemainingAmount(upiState.term).toLocaleString("en-IN")}
+                </div>
+                <div style={s.amountButtons}>
+                  <button type="button" style={s.amountBtn} onClick={() => choosePresetAmount("full")}>
+                    Pay Full Amount
+                  </button>
+                  <button type="button" style={s.amountBtn} onClick={() => choosePresetAmount("half")}>
+                    Pay Half Amount
+                  </button>
+                </div>
+                <div style={s.customAmountRow}>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    max={getTermRemainingAmount(upiState.term) || undefined}
+                    value={upiState.customAmount}
+                    onChange={e => setUpiState(prev => ({ ...prev, customAmount: e.target.value }))}
+                    placeholder="Custom amount"
+                    style={s.customAmountInput}
+                  />
+                  <button type="button" style={s.amountBtn} onClick={applyCustomAmount}>
+                    Pay Custom Amount
+                  </button>
+                </div>
+                <div style={s.screenshotHint}>
+                  Full amount uses the remaining balance. Custom amount must be less than or equal to the remaining due.
+                </div>
+              </div>
+            </>
           ) : (
             <>
-              {upiState.error && <div style={s.upiError}>{upiState.error}</div>}
-              <div style={s.upiInfoGrid} className="student-upi-info-grid">
-                <div style={s.upiInfoCard}>
-                  <div style={s.upiInfoLabel}>UPI ID</div>
-                  <div style={s.upiInfoValue}>{upiState.payeeVpa || SCHOOL_UPI_ID}</div>
-                </div>
-                <div style={s.upiInfoCard}>
-                  <div style={s.upiInfoLabel}>Reference</div>
-                  <div style={s.upiInfoValue}>{upiState.upiTrReference || "N/A"}</div>
-                </div>
-              </div>
-
-              {isMobile ? (
-                <a href={upiState.upiLink} style={s.upiDeepLink} onClick={closeUpiModal}>
-                  Open in UPI App
-                </a>
+              {upiState.loading ? (
+                <div style={s.upiLoading}>Loading UPI payment details...</div>
               ) : (
-                <div style={s.qrWrap}>
-                  {upiState.qrCodeDataUrl ? (
-                    <img src={upiState.qrCodeDataUrl} alt="UPI QR code" style={s.qrImg} />
-                  ) : (
-                    <div style={s.qrPlaceholder}>QR code will appear here.</div>
-                  )}
-                </div>
-              )}
+                <>
+                  <div style={s.upiInfoGrid} className="student-upi-info-grid">
+                    <div style={s.upiInfoCard}>
+                      <div style={s.upiInfoLabel}>UPI ID</div>
+                      <div style={s.upiInfoValue}>{upiState.payeeVpa || SCHOOL_UPI_ID}</div>
+                    </div>
+                    <div style={s.upiInfoCard}>
+                      <div style={s.upiInfoLabel}>Amount</div>
+                      <div style={s.upiInfoValue}>₹{Number(upiState.selectedAmount || 0).toLocaleString("en-IN")}</div>
+                    </div>
+                    <div style={s.upiInfoCard}>
+                      <div style={s.upiInfoLabel}>Reference</div>
+                      <div style={s.upiInfoValue}>{upiState.upiTrReference || "N/A"}</div>
+                    </div>
+                    <div style={s.upiInfoCard}>
+                      <div style={s.upiInfoLabel}>Remaining After This</div>
+                      <div style={s.upiInfoValue}>
+                        ₹{Math.max(0, getTermRemainingAmount(upiState.term) - Number(upiState.selectedAmount || 0)).toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                  </div>
 
-              <div style={s.claimBox}>
-                <label style={s.claimLabel}>Enter UTR / reference number after paying</label>
-                <input
-                  type="text"
-                  value={upiState.utrNumber}
-                  onChange={e => setUpiState(prev => ({ ...prev, utrNumber: e.target.value }))}
-                  placeholder="10 to 12 digit UTR"
-                  style={s.claimInput}
-                />
-                <button type="button" onClick={submitUpiClaim} style={s.claimBtn}>
-                  Submit for Verification
-                </button>
-              </div>
+                  {isMobile ? (
+                    <a href={upiState.upiLink} style={s.upiDeepLink} onClick={closeUpiModal}>
+                      Open in UPI App
+                    </a>
+                  ) : (
+                    <div style={s.qrWrap}>
+                      {upiState.qrCodeDataUrl ? (
+                        <img src={upiState.qrCodeDataUrl} alt="UPI QR code" style={s.qrImg} />
+                      ) : (
+                        <div style={s.qrPlaceholder}>QR code will appear here.</div>
+                      )}
+                    </div>
+                  )}
+
+                  <div style={s.claimBox}>
+                    <label style={s.claimLabel}>Upload payment screenshot</label>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png"
+                      onChange={e => setUpiState(prev => ({
+                        ...prev,
+                        screenshotFile: e.target.files?.[0] || null,
+                        screenshotName: e.target.files?.[0]?.name || ""
+                      }))}
+                      style={s.claimInput}
+                    />
+                    <div style={s.screenshotHint}>
+                      JPG or PNG only, up to 5 MB. {upiState.screenshotName ? `Selected: ${upiState.screenshotName}` : "No file selected yet."}
+                    </div>
+                    <button type="button" onClick={submitUpiClaim} style={s.claimBtn}>
+                      Submit for Verification
+                    </button>
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
@@ -554,12 +722,21 @@ const s = {
   badgeUnpaid: { background: "#fee2e2", color: "#991b1b" },
   badgePending: { background: "#fef3c7", color: "#92400e" },
   badgePaid: { background: "#dcfce7", color: "#166534" },
+  badgePartial: { background: "#fef3c7", color: "#92400e" },
   badgeRejected: { background: "#e5e7eb", color: "#374151" },
+  termProgress: { marginTop: "8px", fontSize: "0.82rem", color: "var(--navy)", fontWeight: "700", lineHeight: 1.5 },
   termActions: { display: "flex", gap: "12px", flexWrap: "wrap" },
   upiButton: { flex: 1, minWidth: "180px", padding: "14px 16px", borderRadius: "18px", border: "1px solid #0e6b6b", background: "rgba(14,107,107,0.08)", color: "var(--navy)", fontWeight: "800", cursor: "pointer" },
   termStatusLocked: { padding: "14px 16px", borderRadius: "18px", background: "var(--light-bg)", color: "var(--navy)", fontWeight: "800", textAlign: "center" },
   emptyTermBox: { gridColumn: "1 / -1", padding: "24px", borderRadius: "16px", border: "1px dashed var(--border)", color: "var(--text-muted)", textAlign: "center", fontWeight: "700" },
   upiModalBody: { display: "flex", flexDirection: "column", gap: "18px" },
+  amountChooser: { display: "flex", flexDirection: "column", gap: "14px", padding: "18px", borderRadius: "18px", border: "1px solid var(--border)", background: "var(--light-bg)" },
+  amountChooserTitle: { fontSize: "1rem", fontWeight: "900", color: "var(--navy)" },
+  amountChooserSub: { fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: "700" },
+  amountButtons: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px" },
+  amountBtn: { padding: "14px 16px", borderRadius: "18px", border: "none", background: "var(--navy)", color: "var(--gold-light)", fontWeight: "800", cursor: "pointer" },
+  customAmountRow: { display: "flex", gap: "12px", flexWrap: "wrap" },
+  customAmountInput: { flex: 1, minWidth: "160px", padding: "12px 14px", borderRadius: "12px", border: "1.5px solid var(--border)", fontWeight: "600", color: "var(--navy)", background: "var(--white)" },
   upiLoading: { padding: "24px", textAlign: "center", color: "var(--navy)", fontWeight: "800" },
   upiError: { background: "var(--danger-bg)", color: "var(--danger-text)", border: "1px solid var(--danger-text)", padding: "12px 16px", borderRadius: "12px", fontWeight: "800" },
   upiInfoGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px" },
@@ -571,7 +748,8 @@ const s = {
   qrPlaceholder: { padding: "40px 20px", borderRadius: "16px", border: "1px dashed var(--border)", color: "var(--text-muted)", fontWeight: "700" },
   claimBox: { display: "flex", flexDirection: "column", gap: "10px" },
   claimLabel: { fontSize: "0.75rem", textTransform: "uppercase", color: "var(--gold)", fontWeight: "900" },
-  claimInput: { padding: "12px 14px", borderRadius: "12px", border: "1.5px solid var(--border)", fontWeight: "600", color: "var(--navy)" },
+  claimInput: { padding: "12px 14px", borderRadius: "12px", border: "1.5px solid var(--border)", fontWeight: "600", color: "var(--navy)", width: "100%", background: "var(--white)" },
+  screenshotHint: { fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: "600", lineHeight: 1.5 },
   claimBtn: { padding: "14px 16px", borderRadius: "18px", border: "none", background: "var(--navy)", color: "var(--gold-light)", fontWeight: "800", cursor: "pointer" },
   upiDeepLink: { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "14px 16px", borderRadius: "18px", background: "var(--navy)", color: "var(--gold-light)", fontWeight: "800", textDecoration: "none" }
 };
