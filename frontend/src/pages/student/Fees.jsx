@@ -500,6 +500,9 @@ export default function StudentFees() {
           const canUseUpi = !(term.paymentStatus === "PENDING_VERIFICATION" || term.paymentStatus === "PAID" || term.status === "Paid");
           const paidAmount = getTermConfirmedAmount(term);
           const remainingAmount = getTermRemainingAmount(term);
+          const fullAmountLabel = `Pay Full Amount - ₹${remainingAmount.toLocaleString("en-IN")}`;
+          const halfAmountLabel = `Pay Half Amount - ₹${Math.max(1, Math.round(remainingAmount / 2)).toLocaleString("en-IN")}`;
+          const thirdAmountLabel = `Pay 1/3 Amount - ₹${Math.max(1, Math.round(remainingAmount / 3)).toLocaleString("en-IN")}`;
           return (
             <div key={term._id} style={s.termCard} className="student-term-card">
               <div style={s.termHeader}>
@@ -583,13 +586,13 @@ export default function StudentFees() {
                 </div>
                 <div style={s.amountButtons}>
                   <button type="button" style={s.amountBtn} onClick={() => choosePresetAmount("full")}>
-                    Pay Full Amount
+                    {fullAmountLabel}
                   </button>
                   <button type="button" style={s.amountBtn} onClick={() => choosePresetAmount("half")}>
-                    Pay Half Amount
+                    {halfAmountLabel}
                   </button>
                   <button type="button" style={s.amountBtn} onClick={() => choosePresetAmount("third")}>
-                    Pay One-Third Amount
+                    {thirdAmountLabel}
                   </button>
                 </div>
                 <div style={s.screenshotHint}>
