@@ -444,6 +444,10 @@ export default function StudentFees() {
 
   const percentage = fee.totalAnnualFee > 0 ? Math.min(100, Math.round((fee.totalPaid / fee.totalAnnualFee) * 100)) : 0;
   const classLabel = [user?.class?.name, user?.class?.section].filter(Boolean).join("");
+  const selectedTermRemainingAmount = getTermRemainingAmount(upiState.term);
+  const fullAmountLabel = `Pay Full Amount - ₹${selectedTermRemainingAmount.toLocaleString("en-IN")}`;
+  const halfAmountLabel = `Pay Half Amount - ₹${Math.max(1, Math.round(selectedTermRemainingAmount / 2)).toLocaleString("en-IN")}`;
+  const thirdAmountLabel = `Pay 1/3 Amount - ₹${Math.max(1, Math.round(selectedTermRemainingAmount / 3)).toLocaleString("en-IN")}`;
 
   return (
     <div style={s.container} className="student-fees-page">
@@ -500,9 +504,6 @@ export default function StudentFees() {
           const canUseUpi = !(term.paymentStatus === "PENDING_VERIFICATION" || term.paymentStatus === "PAID" || term.status === "Paid");
           const paidAmount = getTermConfirmedAmount(term);
           const remainingAmount = getTermRemainingAmount(term);
-          const fullAmountLabel = `Pay Full Amount - ₹${remainingAmount.toLocaleString("en-IN")}`;
-          const halfAmountLabel = `Pay Half Amount - ₹${Math.max(1, Math.round(remainingAmount / 2)).toLocaleString("en-IN")}`;
-          const thirdAmountLabel = `Pay 1/3 Amount - ₹${Math.max(1, Math.round(remainingAmount / 3)).toLocaleString("en-IN")}`;
           return (
             <div key={term._id} style={s.termCard} className="student-term-card">
               <div style={s.termHeader}>
