@@ -73,7 +73,6 @@ export default function StudentFees() {
     phase: "select",
     term: null,
     selectedAmount: 0,
-    customAmount: "",
     upiLink: "",
     qrCodeDataUrl: "",
     upiTrReference: "",
@@ -158,7 +157,6 @@ export default function StudentFees() {
       error: "",
       screenshotFile: null,
       screenshotName: "",
-      customAmount: "",
       selectedAmount: 0
     }));
   };
@@ -175,7 +173,6 @@ export default function StudentFees() {
       phase: "select",
       term,
       selectedAmount: remainingAmount,
-      customAmount: "",
       upiLink: "",
       qrCodeDataUrl: "",
       upiTrReference: "",
@@ -252,20 +249,17 @@ export default function StudentFees() {
     const term = upiState.term;
     if (!term) return;
     const remainingAmount = getTermRemainingAmount(term);
-    const nextAmount = mode === "full" ? remainingAmount : Math.max(1, Math.round(remainingAmount / 2));
+    const nextAmount = mode === "full"
+      ? remainingAmount
+      : mode === "half"
+        ? Math.max(1, Math.round(remainingAmount / 2))
+        : Math.max(1, Math.round(remainingAmount / 3));
     setUpiState(prev => ({
       ...prev,
       selectedAmount: nextAmount,
-      customAmount: mode === "custom" ? prev.customAmount : "",
       error: ""
     }));
-    if (mode !== "custom") {
-      await preparePaymentLink(nextAmount);
-    }
-  };
-
-  const applyCustomAmount = async () => {
-    await preparePaymentLink(upiState.customAmount);
+    await preparePaymentLink(nextAmount);
   };
 
   const submitUpiClaim = async () => {
@@ -594,24 +588,12 @@ export default function StudentFees() {
                   <button type="button" style={s.amountBtn} onClick={() => choosePresetAmount("half")}>
                     Pay Half Amount
                   </button>
-                </div>
-                <div style={s.customAmountRow}>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    max={getTermRemainingAmount(upiState.term) || undefined}
-                    value={upiState.customAmount}
-                    onChange={e => setUpiState(prev => ({ ...prev, customAmount: e.target.value }))}
-                    placeholder="Custom amount"
-                    style={s.customAmountInput}
-                  />
-                  <button type="button" style={s.amountBtn} onClick={applyCustomAmount}>
-                    Pay Custom Amount
+                  <button type="button" style={s.amountBtn} onClick={() => choosePresetAmount("third")}>
+                    Pay One-Third Amount
                   </button>
                 </div>
                 <div style={s.screenshotHint}>
-                  Full amount uses the remaining balance. Custom amount must be less than or equal to the remaining due.
+                  Full amount uses the remaining balance. Half and one-third are rounded to the nearest rupee.
                 </div>
               </div>
             </>
@@ -733,10 +715,8 @@ const s = {
   amountChooser: { display: "flex", flexDirection: "column", gap: "14px", padding: "18px", borderRadius: "18px", border: "1px solid var(--border)", background: "var(--light-bg)" },
   amountChooserTitle: { fontSize: "1rem", fontWeight: "900", color: "var(--navy)" },
   amountChooserSub: { fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: "700" },
-  amountButtons: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px" },
+  amountButtons: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "12px" },
   amountBtn: { padding: "14px 16px", borderRadius: "18px", border: "none", background: "var(--navy)", color: "var(--gold-light)", fontWeight: "800", cursor: "pointer" },
-  customAmountRow: { display: "flex", gap: "12px", flexWrap: "wrap" },
-  customAmountInput: { flex: 1, minWidth: "160px", padding: "12px 14px", borderRadius: "12px", border: "1.5px solid var(--border)", fontWeight: "600", color: "var(--navy)", background: "var(--white)" },
   upiLoading: { padding: "24px", textAlign: "center", color: "var(--navy)", fontWeight: "800" },
   upiError: { background: "var(--danger-bg)", color: "var(--danger-text)", border: "1px solid var(--danger-text)", padding: "12px 16px", borderRadius: "12px", fontWeight: "800" },
   upiInfoGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px" },
