@@ -481,12 +481,12 @@ export default function StudentFees() {
       </div>
 
       <h3 style={s.sectionTitle}>Term Payment Options</h3>
-      {termItems.length === 0 && Number(fee.totalDue || 0) > 0 && (
+      {Number(fee.totalDue || 0) > 0 && (
         <div style={s.balancePayCard} className="student-balance-pay-card">
           <div>
             <div style={s.balancePayLabel}>Pay Remaining Balance</div>
             <div style={s.balancePayText}>
-              No term-wise fee records are available yet, so you can pay the remaining balance via UPI.
+              You still owe ₹{Number(fee.totalDue || 0).toLocaleString("en-IN")}. You can pay the remaining balance via UPI.
             </div>
           </div>
           <button type="button" style={s.balancePayBtn} onClick={openBalanceUpiPayment}>
