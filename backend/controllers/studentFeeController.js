@@ -64,7 +64,7 @@ const makeUpiReference = (...parts) => {
   return `UPI${digest}`;
 };
 
-const buildUpiLink = ({ amount, reference, note }) => {
+const buildUpiLink = ({ amount, note }) => {
   const params = new URLSearchParams({
     pa: SCHOOL_UPI_ID,
     am: String(Number(amount || 0).toFixed(2)),
@@ -72,13 +72,9 @@ const buildUpiLink = ({ amount, reference, note }) => {
     cu: "INR"
   });
 
-  if (reference) {
-    params.set("tr", reference);
-  }
-
   return {
     upiLink: `upi://pay?${params.toString()}`,
-    upiTrReference: reference
+    upiTrReference: ""
   };
 };
 
@@ -293,7 +289,6 @@ exports.getUpiLink = async (req, res) => {
       : await persistUpiReferenceIfNeeded(fee, term, studentId);
     const { upiLink } = buildUpiLink({
       amount,
-      reference: upiTrReference,
       note: isBalancePayment ? "Balance Payment" : `Fee ${termLabel}`
     });
 
@@ -328,55 +323,6 @@ exports.getUpiLink = async (req, res) => {
         claimedAt: term.claimedAt || null,
         verifiedAt: term.verifiedAt || null,
         rejectionReason: term.rejectionReason || ""
-      }
-    });
-  } catch (e) {
-    res.status(e.status || 500).json({ message: e.message });
-  }
-};
-
-exports.getTestUpiLink = async (req, res) => {
-  try {
-    const studentId = String(req.user?.id || "");
-    const amount = Number(req.query?.amount || 0);
-    const label = String(req.query?.label || "TEST PAYMENT").trim();
-
-    if (!studentId) {
-      return res.status(400).json({ message: "Student identity not found" });
-    }
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return res.status(400).json({ message: "Enter a valid amount" });
-    }
-
-    const { upiLink } = buildUpiLink({
-      amount,
-      reference: "",
-      note: label || "Test Payment"
-    });
-
-    const qrCodeDataUrl = await QRCode.toDataURL(upiLink, {
-      errorCorrectionLevel: "M",
-      margin: 1,
-      width: 280
-    });
-
-    res.json({
-      upiLink,
-      qrCodeDataUrl,
-      upiTrReference: "",
-      payeeVpa: SCHOOL_UPI_ID,
-      amount,
-      term: {
-        _id: "test",
-        termNumber: 0,
-        termName: label || "Test Payment",
-        amount,
-        paymentStatus: "UNPAID",
-        utrNumber: "",
-        claimedAt: null,
-        verifiedAt: null,
-        rejectionReason: ""
       }
     });
   } catch (e) {

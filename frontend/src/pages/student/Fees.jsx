@@ -67,11 +67,9 @@ export default function StudentFees() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isMobile, setIsMobile] = useState(false);
-  const [testAmount, setTestAmount] = useState("");
   const [upiState, setUpiState] = useState({
     open: false,
     loading: false,
-    mode: "term",
     term: null,
     upiLink: "",
     qrCodeDataUrl: "",
@@ -117,7 +115,7 @@ export default function StudentFees() {
   const termItems = useMemo(() => (Array.isArray(fee?.terms) ? [...fee.terms].sort((a, b) => a.termNumber - b.termNumber) : []), [fee]);
 
   const closeUpiModal = () => {
-    setUpiState(prev => ({ ...prev, open: false, loading: false, error: "", mode: "term" }));
+    setUpiState(prev => ({ ...prev, open: false, loading: false, error: "" }));
   };
 
   const openUpiPayment = async (term) => {
@@ -128,7 +126,6 @@ export default function StudentFees() {
     setUpiState({
       open: true,
       loading: true,
-      mode: "term",
       term,
       upiLink: "",
       qrCodeDataUrl: "",
@@ -145,7 +142,7 @@ export default function StudentFees() {
         loading: false,
         upiLink: data.upiLink,
         qrCodeDataUrl: data.qrCodeDataUrl,
-        upiTrReference: data.upiTrReference || "Not used for this test",
+        upiTrReference: data.upiTrReference || "",
         payeeVpa: data.payeeVpa || "",
       }));
     } catch (e) {
@@ -165,53 +162,6 @@ export default function StudentFees() {
       paymentStatus: "UNPAID",
       status: "Unpaid"
     });
-  };
-
-  const openTestUpiPayment = async () => {
-    const amount = Number(testAmount || 0);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      alert("Enter a valid amount to generate a test QR.");
-      return;
-    }
-
-    setUpiState({
-      open: true,
-      loading: true,
-      mode: "test",
-      term: {
-        _id: "test",
-        termName: "Test Payment",
-        amount,
-        paymentStatus: "UNPAID",
-        status: "Unpaid"
-      },
-      upiLink: "",
-      qrCodeDataUrl: "",
-      upiTrReference: "",
-      payeeVpa: "",
-      utrNumber: "",
-      error: "",
-    });
-
-    try {
-      const { data } = await api.get("/student-fees/test-upi-link", {
-        params: { amount, label: "Test Payment" }
-      });
-      setUpiState(prev => ({
-        ...prev,
-        loading: false,
-        upiLink: data.upiLink,
-        qrCodeDataUrl: data.qrCodeDataUrl,
-        upiTrReference: data.upiTrReference || "",
-        payeeVpa: data.payeeVpa || "",
-      }));
-    } catch (e) {
-      setUpiState(prev => ({
-        ...prev,
-        loading: false,
-        error: e.response?.data?.message || "Unable to generate test UPI QR."
-      }));
-    }
   };
 
   const submitUpiClaim = async () => {
@@ -430,26 +380,6 @@ export default function StudentFees() {
       </div>
 
       <h3 style={s.sectionTitle}>Term Payment Options</h3>
-      <div style={s.balancePayCard} className="student-balance-pay-card">
-        <div>
-          <div style={s.balancePayLabel}>Test UPI Generator</div>
-          <div style={s.balancePayText}>Type any amount and generate a QR to test the manual UPI flow.</div>
-        </div>
-        <div style={s.testAmountWrap}>
-          <input
-            type="number"
-            min="1"
-            step="1"
-            value={testAmount}
-            onChange={e => setTestAmount(e.target.value)}
-            placeholder="Amount"
-            style={s.testAmountInput}
-          />
-          <button type="button" style={s.balancePayBtn} onClick={openTestUpiPayment}>
-            Generate QR
-          </button>
-        </div>
-      </div>
       {termItems.length === 0 && Number(fee.totalDue || 0) > 0 && (
         <div style={s.balancePayCard} className="student-balance-pay-card">
           <div>
@@ -548,7 +478,7 @@ export default function StudentFees() {
                 </div>
                 <div style={s.upiInfoCard}>
                   <div style={s.upiInfoLabel}>Reference</div>
-                  <div style={s.upiInfoValue}>{upiState.upiTrReference || "Not used for this test"}</div>
+                  <div style={s.upiInfoValue}>{upiState.upiTrReference || "N/A"}</div>
                 </div>
               </div>
 
@@ -566,21 +496,19 @@ export default function StudentFees() {
                 </div>
               )}
 
-              {upiState.mode !== "test" && (
-                <div style={s.claimBox}>
-                  <label style={s.claimLabel}>Enter UTR / reference number after paying</label>
-                  <input
-                    type="text"
-                    value={upiState.utrNumber}
-                    onChange={e => setUpiState(prev => ({ ...prev, utrNumber: e.target.value }))}
-                    placeholder="10 to 12 digit UTR"
-                    style={s.claimInput}
-                  />
-                  <button type="button" onClick={submitUpiClaim} style={s.claimBtn}>
-                    Submit for Verification
-                  </button>
-                </div>
-              )}
+              <div style={s.claimBox}>
+                <label style={s.claimLabel}>Enter UTR / reference number after paying</label>
+                <input
+                  type="text"
+                  value={upiState.utrNumber}
+                  onChange={e => setUpiState(prev => ({ ...prev, utrNumber: e.target.value }))}
+                  placeholder="10 to 12 digit UTR"
+                  style={s.claimInput}
+                />
+                <button type="button" onClick={submitUpiClaim} style={s.claimBtn}>
+                  Submit for Verification
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -618,8 +546,6 @@ const s = {
   balancePayLabel: { fontSize: "0.78rem", textTransform: "uppercase", color: "var(--gold)", fontWeight: "900", letterSpacing: "0.08em", marginBottom: "6px" },
   balancePayText: { color: "var(--navy)", fontWeight: "700" },
   balancePayBtn: { padding: "14px 18px", borderRadius: "18px", border: "none", background: "var(--navy)", color: "var(--gold-light)", fontWeight: "800", cursor: "pointer", whiteSpace: "nowrap" },
-  testAmountWrap: { display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" },
-  testAmountInput: { minWidth: "140px", padding: "12px 14px", borderRadius: "12px", border: "1.5px solid var(--border)", fontWeight: "700", color: "var(--navy)", background: "var(--white)" },
   termCard: { background: "white", borderRadius: "18px", border: "1px solid var(--border)", padding: "20px", boxShadow: "var(--shadow-sm)" },
   termHeader: { display: "flex", justifyContent: "space-between", gap: "14px", alignItems: "flex-start", marginBottom: "16px" },
   termTitle: { fontSize: "1.05rem", fontWeight: "900", color: "var(--navy)" },
