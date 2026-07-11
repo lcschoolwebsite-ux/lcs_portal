@@ -12,6 +12,7 @@ const { canTeachersManageFees } = require("./settingController");
 
 const SCHOOL_UPI_ID = process.env.SCHOOL_UPI_ID || "lemhs@kbl";
 const SCHOOL_NAME = process.env.SCHOOL_NAME || "Loreto English Medium High School General Fees Account";
+const FEE_SCREENSHOT_FOLDER = "fee-payment-screenshots";
 
 const configureCloudinary = () => {
   const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
@@ -194,7 +195,7 @@ const uploadClaimScreenshot = async ({ studentId, termId, file }) => {
   }
 
   const result = await uploadBufferToCloudinary(file.buffer, {
-    folder: "lcsms/upi-payment-screenshots",
+    folder: FEE_SCREENSHOT_FOLDER,
     public_id: `upi-claim-${studentId}-${termId}-${Date.now()}`,
     overwrite: false,
     resource_type: "image",
