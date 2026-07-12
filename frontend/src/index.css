@@ -706,20 +706,22 @@ input, select, textarea {
     padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
     border-radius: 18px;
     justify-content: flex-start;
+    width: auto;
     overflow: hidden;
   }
 
   .mobile-bottom-bar > button {
-    flex: 0 0 auto;
-    min-width: 46px;
-    min-height: 40px;
-    padding: 4px 6px;
-    border-radius: 12px;
-    font-size: 0.5rem;
+    flex: 0 0 40px !important;
+    width: 40px !important;
+    min-width: 40px !important;
+    min-height: 38px !important;
+    padding: 0 !important;
+    border-radius: 12px !important;
+    font-size: 0.5rem !important;
   }
 
   .mobile-bottom-bar > div {
-    flex: 1 1 auto;
+    flex: 1 1 0 !important;
     min-width: 0;
     display: flex;
     align-items: center;
@@ -735,12 +737,13 @@ input, select, textarea {
   }
 
   .mobile-bottom-bar > div > a {
-    flex: 0 0 auto;
-    min-width: 46px;
-    min-height: 40px;
-    padding: 4px 6px;
-    border-radius: 12px;
-    font-size: 0.5rem;
+    flex: 0 0 40px !important;
+    width: 40px !important;
+    min-width: 40px !important;
+    min-height: 38px !important;
+    padding: 0 !important;
+    border-radius: 12px !important;
+    font-size: 0.5rem !important;
   }
 
   .mobile-bottom-bar > button span,
@@ -902,12 +905,15 @@ input, select, textarea {
   .mobile-bottom-bar {
     gap: 6px;
     padding: 5px 6px calc(5px + env(safe-area-inset-bottom, 0px));
+    left: 6px;
+    right: 6px;
+    bottom: 6px;
   }
 
   .mobile-bottom-bar > button {
-    min-width: 40px;
-    min-height: 38px;
-    padding: 4px 5px;
+    min-width: 36px !important;
+    width: 36px !important;
+    min-height: 36px !important;
   }
 
   .mobile-bottom-bar > div {
@@ -915,19 +921,19 @@ input, select, textarea {
   }
 
   .mobile-bottom-bar > div > a {
-    min-width: 40px;
-    min-height: 38px;
-    padding: 4px 5px;
+    min-width: 36px !important;
+    width: 36px !important;
+    min-height: 36px !important;
   }
 
   .mobile-bottom-bar > button span,
   .mobile-bottom-bar > div > a span {
-    display: none;
+    display: none !important;
   }
 
   .mobile-bottom-bar > button i,
   .mobile-bottom-bar > div > a i {
-    font-size: 0.9rem;
+    font-size: 0.86rem !important;
   }
 }
 
