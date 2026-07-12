@@ -39,7 +39,12 @@ const studentFeeSchema = new mongoose.Schema({
       claimedAt: { type: Date, default: null },
       verifiedAt: { type: Date, default: null },
       verifiedByAdminId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-      rejectionReason: { type: String, trim: true, default: "" }
+      rejectionReason: { type: String, trim: true, default: "" },
+      installmentMode: {
+        type: String,
+        enum: ["THIRD", "CUSTOM", "FULL"],
+        default: null
+      }
     }
   ],
   totalPaid: { type: Number, default: 0 },

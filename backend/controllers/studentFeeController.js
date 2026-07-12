@@ -13,6 +13,11 @@ const { canTeachersManageFees } = require("./settingController");
 const SCHOOL_UPI_ID = process.env.SCHOOL_UPI_ID || "lemhs@kbl";
 const SCHOOL_NAME = process.env.SCHOOL_NAME || "Loreto English Medium High School General Fees Account";
 const FEE_SCREENSHOT_FOLDER = "fee-payment-screenshots";
+const INSTALLMENT_MODES = Object.freeze({
+  THIRD: "THIRD",
+  CUSTOM: "CUSTOM",
+  FULL: "FULL"
+});
 
 const configureCloudinary = () => {
   const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
@@ -128,6 +133,80 @@ const normalizeAmount = value => {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return 0;
   return Math.round(amount * 100) / 100;
+};
+
+const normalizeInstallmentMode = value => {
+  const mode = String(value || "").trim().toUpperCase();
+  return Object.values(INSTALLMENT_MODES).includes(mode) ? mode : "";
+};
+
+const amountsMatch = (first, second) => Math.abs(normalizeAmount(first) - normalizeAmount(second)) < 0.01;
+
+const getThirdInstallmentAmount = term => normalizeAmount(Number(term?.amount || 0) / 3);
+
+const inferInstallmentModeForAmount = ({ amount, remainingAmount, term }) => {
+  if (amountsMatch(amount, remainingAmount)) return INSTALLMENT_MODES.FULL;
+  if (amountsMatch(amount, getThirdInstallmentAmount(term))) return INSTALLMENT_MODES.THIRD;
+  return INSTALLMENT_MODES.CUSTOM;
+};
+
+const resolveInstallmentMode = ({ term, amount, remainingAmount, requestedMode, existingMode }) => {
+  const requested = normalizeInstallmentMode(requestedMode);
+  if (requestedMode && !requested) {
+    const error = new Error("Invalid installment mode");
+    error.status = 400;
+    throw error;
+  }
+
+  const resolved = requested || inferInstallmentModeForAmount({ amount, remainingAmount, term });
+  const lockedMode = normalizeInstallmentMode(existingMode);
+  const thirdAmount = getThirdInstallmentAmount(term);
+
+  if (lockedMode === INSTALLMENT_MODES.THIRD) {
+    const isThird = amountsMatch(amount, thirdAmount);
+    const isFull = amountsMatch(amount, remainingAmount);
+    if (!isThird && !isFull) {
+      const error = new Error("This term is on a 1/3 installment plan - please record a 1/3 payment or the full remaining balance instead");
+      error.status = 400;
+      throw error;
+    }
+  }
+
+  if (lockedMode === INSTALLMENT_MODES.FULL && !amountsMatch(amount, remainingAmount)) {
+    const error = new Error("This term is already marked as full payment - please record the remaining balance instead");
+    error.status = 400;
+    throw error;
+  }
+
+  if (!lockedMode) {
+    if (resolved === INSTALLMENT_MODES.THIRD && !amountsMatch(amount, thirdAmount)) {
+      const error = new Error("1/3 payment must match the term's fixed third amount");
+      error.status = 400;
+      throw error;
+    }
+
+    if (resolved === INSTALLMENT_MODES.FULL && !amountsMatch(amount, remainingAmount)) {
+      const error = new Error("Full payment must match the remaining balance");
+      error.status = 400;
+      throw error;
+    }
+  }
+
+  return lockedMode || resolved;
+};
+
+const getOpenTermForFlexiblePayment = (fee, preferredTermId, preferredTermNumber) => {
+  const terms = Array.isArray(fee?.terms) ? fee.terms : [];
+  if (preferredTermId) {
+    return terms.find(term => String(term._id) === String(preferredTermId));
+  }
+  if (preferredTermNumber != null && preferredTermNumber !== "") {
+    return terms.find(term => Number(term.termNumber) === Number(preferredTermNumber));
+  }
+
+  const openTerms = terms.filter(term => getTermRemainingAmount(term) > 0 && term.paymentStatus !== "PENDING_VERIFICATION");
+  if (openTerms.length === 1) return openTerms[0];
+  return null;
 };
 
 const findStudentFeeRecord = async ({ studentId, academicYear }) => {
@@ -404,7 +483,8 @@ exports.getUpiLink = async (req, res) => {
         screenshotPublicId: "",
         claimedAt: null,
         verifiedAt: null,
-        rejectionReason: ""
+        rejectionReason: "",
+        installmentMode: null
       } : {
         _id: term._id,
         termNumber: term.termNumber,
@@ -418,7 +498,8 @@ exports.getUpiLink = async (req, res) => {
         screenshotPublicId: term.screenshotPublicId || "",
         claimedAt: term.claimedAt || null,
         verifiedAt: term.verifiedAt || null,
-        rejectionReason: term.rejectionReason || ""
+        rejectionReason: term.rejectionReason || "",
+        installmentMode: term.installmentMode || null
       }
     });
   } catch (e) {
@@ -432,6 +513,7 @@ exports.claimUpiPayment = async (req, res) => {
     ensureStudentOwnership(req, studentId);
     const file = req.file;
     const requestedAmount = normalizeAmount(req.body?.amount || 0);
+    const requestedInstallmentMode = req.body?.installmentMode;
     if (!file?.buffer) {
       return res.status(400).json({ message: "Payment screenshot is required" });
     }
@@ -455,6 +537,13 @@ exports.claimUpiPayment = async (req, res) => {
       ? Number(fee.totalDue || fee.totalAnnualFee || 0)
       : getTermRemainingAmount(term);
     const claimAmount = requestedAmount > 0 ? requestedAmount : remainingAmount;
+    const installmentMode = resolveInstallmentMode({
+      term: term || { amount: remainingAmount },
+      amount: claimAmount,
+      remainingAmount,
+      requestedMode: requestedInstallmentMode,
+      existingMode: term?.installmentMode
+    });
 
     if (claimAmount <= 0) {
       return res.status(400).json({ message: "No balance due" });
@@ -481,7 +570,8 @@ exports.claimUpiPayment = async (req, res) => {
         claimedAt: new Date(),
         verifiedAt: null,
         verifiedByAdminId: null,
-        rejectionReason: ""
+        rejectionReason: "",
+        installmentMode
       });
 
       await fee.save();
@@ -502,7 +592,8 @@ exports.claimUpiPayment = async (req, res) => {
           claimedAt: term.claimedAt,
           verifiedAt: term.verifiedAt,
           rejectionReason: term.rejectionReason,
-          upiTrReference: term.upiTrReference
+          upiTrReference: term.upiTrReference,
+          installmentMode: term.installmentMode || null
         }
       });
     }
@@ -531,6 +622,9 @@ exports.claimUpiPayment = async (req, res) => {
     term.verifiedAt = null;
     term.verifiedByAdminId = null;
     term.rejectionReason = "";
+    if (!term.installmentMode) {
+      term.installmentMode = installmentMode;
+    }
     if (!term.upiTrReference) {
       term.upiTrReference = makeUpiReference(studentId, term._id || term.termNumber || term.termName || "", getTermLabel(term));
     }
@@ -552,7 +646,8 @@ exports.claimUpiPayment = async (req, res) => {
         claimedAt: term.claimedAt,
         verifiedAt: term.verifiedAt,
         rejectionReason: term.rejectionReason,
-        upiTrReference: term.upiTrReference
+        upiTrReference: term.upiTrReference,
+        installmentMode: term.installmentMode || null
       }
     });
   } catch (e) {
@@ -594,7 +689,8 @@ exports.getPendingUpiVerifications = async (req, res) => {
           screenshotPublicId: term.screenshotPublicId || "",
           claimedAt: term.claimedAt || null,
           upiTrReference: term.upiTrReference || "",
-          paymentStatus: term.paymentStatus
+          paymentStatus: term.paymentStatus,
+          installmentMode: term.installmentMode || null
         }))
     ).sort((a, b) => new Date(b.claimedAt || 0) - new Date(a.claimedAt || 0));
 
@@ -637,6 +733,15 @@ exports.verifyUpiPayment = async (req, res) => {
     term.verifiedByAdminId = req.user.id;
 
     if (action === "confirm") {
+      if (!term.installmentMode) {
+        term.installmentMode = resolveInstallmentMode({
+          term,
+          amount: term.claimedAmount || term.amount || 0,
+          remainingAmount: Number(term.amount || 0),
+          existingMode: term.installmentMode
+        });
+      }
+
       const currentPaid = Number(term.paidAmount || 0);
       const claimAmount = Number(term.claimedAmount || term.amount || 0);
       const confirmedPaid = Math.min(Number(term.amount || 0), currentPaid + claimAmount);
@@ -690,7 +795,8 @@ exports.verifyUpiPayment = async (req, res) => {
           method: term.method,
           claimedAmount: term.claimedAmount || 0,
           screenshotUrl: term.screenshotUrl || "",
-          screenshotPublicId: term.screenshotPublicId || ""
+          screenshotPublicId: term.screenshotPublicId || "",
+          installmentMode: term.installmentMode || null
         }
       });
     }
@@ -702,6 +808,9 @@ exports.verifyUpiPayment = async (req, res) => {
     term.claimedAmount = 0;
     term.claimedAt = null;
     term.rejectionReason = rejectionReason || "Rejected by administrator";
+    if (!hasConfirmedPaid) {
+      term.installmentMode = null;
+    }
     await fee.save();
 
     res.json({
@@ -716,7 +825,8 @@ exports.verifyUpiPayment = async (req, res) => {
         claimedAmount: term.claimedAmount || 0,
         screenshotUrl: term.screenshotUrl || "",
         screenshotPublicId: term.screenshotPublicId || "",
-        rejectionReason: term.rejectionReason
+        rejectionReason: term.rejectionReason,
+        installmentMode: term.installmentMode || null
       }
     });
   } catch (e) {
@@ -726,7 +836,7 @@ exports.verifyUpiPayment = async (req, res) => {
 
 exports.recordPayment = async (req, res) => {
   try {
-    const { studentFeeId, termNumber, amount, method, paidDate, note } = req.body;
+    const { studentFeeId, termNumber, amount, method, paidDate, note, installmentMode: requestedInstallmentMode } = req.body;
     const fee = await StudentFee.findById(studentFeeId).populate("student", "satCode");
     
     if (!fee) return res.status(404).json({ message: "Fee record not found" });
@@ -734,8 +844,27 @@ exports.recordPayment = async (req, res) => {
     const term = fee.terms.find(t => t.termNumber === Number(termNumber));
     if (!term) return res.status(404).json({ message: "Term not found" });
 
-    term.status = "Paid";
-    term.paidAmount = Number(amount);
+    const paymentAmount = normalizeAmount(amount);
+    const remainingAmount = getTermRemainingAmount(term);
+    if (paymentAmount > remainingAmount) {
+      return res.status(400).json({ message: "Payment amount cannot exceed the remaining due for this term" });
+    }
+    const installmentMode = resolveInstallmentMode({
+      term,
+      amount: paymentAmount,
+      remainingAmount,
+      requestedMode: requestedInstallmentMode,
+      existingMode: term.installmentMode
+    });
+    if (!term.installmentMode) {
+      term.installmentMode = installmentMode;
+    }
+
+    const currentPaid = Number(term.paidAmount || 0);
+    const confirmedPaid = Math.min(Number(term.amount || 0), currentPaid + paymentAmount);
+    term.status = confirmedPaid >= Number(term.amount || 0) ? "Paid" : "Partial";
+    term.paymentStatus = confirmedPaid >= Number(term.amount || 0) ? "PAID" : "PARTIALLY_PAID";
+    term.paidAmount = confirmedPaid;
     term.method = method;
     term.paidDate = paidDate;
     term.receiptNumber = `RCP-LCS-${Date.now()}`;
@@ -745,7 +874,7 @@ exports.recordPayment = async (req, res) => {
     await notifyStudentById(
       fee.student?._id || fee.student,
       "Fee payment recorded",
-      `A payment of ₹${Number(amount)} has been recorded for your fee account.`,
+      `A payment of ₹${paymentAmount} has been recorded for your fee account.`,
       { url: "/student/fees" }
     ).catch(error => console.warn("Fee payment push failed:", error.message));
     res.json({ message: "Payment recorded", fee, receipt: term });
@@ -796,8 +925,22 @@ exports.verifyRazorpay = async (req, res) => {
     const fee = await StudentFee.findById(studentFeeId);
     const term = fee.terms.find(t => t.termNumber === Number(termNumber));
 
+    const paymentAmount = Number(term.amount || 0);
+    const remainingAmount = getTermRemainingAmount(term);
+    const installmentMode = resolveInstallmentMode({
+      term,
+      amount: paymentAmount,
+      remainingAmount,
+      requestedMode: INSTALLMENT_MODES.FULL,
+      existingMode: term.installmentMode
+    });
+    if (!term.installmentMode) {
+      term.installmentMode = installmentMode;
+    }
+
     term.status = "Paid";
-    term.paidAmount = term.amount;
+    term.paymentStatus = "PAID";
+    term.paidAmount = Number(term.amount || 0);
     term.method = "Online";
     term.paidDate = new Date().toISOString().split('T')[0];
     term.receiptNumber = `RCP-LCS-ONL-${Date.now()}`;
@@ -844,7 +987,7 @@ exports.createFlexibleOrder = async (req, res) => {
 exports.verifyFlexiblePayment = async (req, res) => {
   try {
     const { 
-      studentFeeId, amount, label, 
+      studentFeeId, amount, label, installmentMode: requestedInstallmentMode,
       razorpay_order_id, razorpay_payment_id, razorpay_signature 
     } = req.body;
     
@@ -861,19 +1004,22 @@ exports.verifyFlexiblePayment = async (req, res) => {
     const fee = await StudentFee.findById(studentFeeId);
     
     // Create a "paid" term record for this payment
+    const paymentAmount = normalizeAmount(amount);
     fee.terms.push({
       termNumber: fee.terms.length + 1,
       termName: label,
-      amount: Number(amount),
+      amount: paymentAmount,
       status: "Paid",
-      paidAmount: Number(amount),
+      paymentStatus: "PAID",
+      paidAmount: paymentAmount,
       method: "Online",
       paidDate: new Date().toISOString().split('T')[0],
       receiptNumber: `RCP-FLEX-${Date.now()}`,
       razorpayOrderId: razorpay_order_id,
       razorpayPaymentId: razorpay_payment_id,
       razorpaySignature: razorpay_signature,
-      receiptGeneratedAt: new Date()
+      receiptGeneratedAt: new Date(),
+      installmentMode: normalizeInstallmentMode(requestedInstallmentMode) || null
     });
     await fee.save();
     await notifyStudentById(
@@ -906,27 +1052,61 @@ exports.recordFlexiblePayment = async (req, res) => {
         return res.status(403).json({ message: "Access denied for this student" });
       }
     }
-    if (!amount || Number(amount) <= 0) return res.status(400).json({ message: "Enter a valid payment amount" });
-    if (Number(amount) > fee.totalDue) return res.status(400).json({ message: "Payment amount cannot exceed total due" });
+    const paymentAmount = normalizeAmount(amount);
+    if (!paymentAmount || paymentAmount <= 0) return res.status(400).json({ message: "Enter a valid payment amount" });
+    if (paymentAmount > fee.totalDue) return res.status(400).json({ message: "Payment amount cannot exceed total due" });
 
-    // Create a manual paid record
-    fee.terms.push({
-      termNumber: fee.terms.length + 1,
-      termName: note || "Manual Payment",
-      amount: Number(amount),
-      status: "Paid",
-      paidAmount: Number(amount),
-      method: method,
-      paidDate: paidDate,
-      receiptNumber: `RCP-MAN-${Date.now()}`,
-      receiptGeneratedAt: new Date()
-    });
+    const requestedInstallmentMode = req.body?.installmentMode;
+    const targetTerm = getOpenTermForFlexiblePayment(fee, req.body?.termId, req.body?.termNumber);
+
+    if (targetTerm) {
+      const remainingAmount = getTermRemainingAmount(targetTerm);
+      if (paymentAmount > remainingAmount) {
+        return res.status(400).json({ message: "Payment amount cannot exceed the remaining due for this term" });
+      }
+      const installmentMode = resolveInstallmentMode({
+        term: targetTerm,
+        amount: paymentAmount,
+        remainingAmount,
+        requestedMode: requestedInstallmentMode,
+        existingMode: targetTerm.installmentMode
+      });
+
+      if (!targetTerm.installmentMode) {
+        targetTerm.installmentMode = installmentMode;
+      }
+
+      const currentPaid = Number(targetTerm.paidAmount || 0);
+      const confirmedPaid = Math.min(Number(targetTerm.amount || 0), currentPaid + paymentAmount);
+      targetTerm.status = confirmedPaid >= Number(targetTerm.amount || 0) ? "Paid" : "Partial";
+      targetTerm.paymentStatus = confirmedPaid >= Number(targetTerm.amount || 0) ? "PAID" : "PARTIALLY_PAID";
+      targetTerm.paidAmount = confirmedPaid;
+      targetTerm.method = method;
+      targetTerm.paidDate = paidDate;
+      targetTerm.receiptNumber = `RCP-MAN-${Date.now()}`;
+      targetTerm.receiptGeneratedAt = new Date();
+    } else {
+      // Preserve the existing flexible-payment behavior when no explicit term is targeted.
+      fee.terms.push({
+        termNumber: fee.terms.length + 1,
+        termName: note || "Manual Payment",
+        amount: paymentAmount,
+        status: "Paid",
+        paymentStatus: "PAID",
+        paidAmount: paymentAmount,
+        method: method,
+        paidDate: paidDate,
+        receiptNumber: `RCP-MAN-${Date.now()}`,
+        receiptGeneratedAt: new Date(),
+        installmentMode: normalizeInstallmentMode(requestedInstallmentMode) || null
+      });
+    }
 
     await fee.save();
     await notifyStudentById(
       fee.student?._id || fee.student,
       "Fee payment recorded",
-      `A payment of ₹${Number(amount)} has been added to your fee account.`,
+      `A payment of ₹${paymentAmount} has been added to your fee account.`,
       { url: "/student/fees" }
     ).catch(error => console.warn("Fee payment push failed:", error.message));
     res.json({ message: "Payment recorded", fee });
