@@ -20,10 +20,8 @@ export default function AnimatedSplash({ onComplete }) {
     return () => clearTimeout(timer);
   }, [onComplete]);
 
-  if (!visible) return null;
-
   return (
-    <div className={`animated-splash ${!visible ? 'fade-out' : ''}`}>
+    <div className={`animated-splash ${!visible ? 'fade-out' : ''}`} aria-hidden={!visible}>
       {/* Animated Background */}
       <div className="splash-bg">
         <div className="splash-grid"></div>

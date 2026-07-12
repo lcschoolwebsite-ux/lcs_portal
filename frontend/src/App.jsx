@@ -99,27 +99,23 @@ function AppContent() {
 
   return (
     <>
-      {showSplash && <AnimatedSplash onComplete={() => setShowSplash(false)} />}
-      {!showSplash && (
-        <>
-          {isNativeAndroidApp() && !isOnline && (
-            <div style={s.offlineBar}>
-              You are offline. Some data may not be up to date.
-            </div>
-          )}
-          {notification && <Toast message={notification.message} onClose={() => setNotification(null)} />}
-          <UpdateAvailableModal update={updateInfo} onClose={() => setUpdateInfo(null)} />
-          <Routes>
-            <Route path="/" element={<PortalHome />} />
-            <Route path="/head" element={<Login />} />
-            <Route path="/login" element={<Navigate to="/head" replace />} />
-            <Route path="/student-login" element={<StudentLogin />} />
-            <Route path="/admin/*" element={<ProtectedRoute role="admin"><AdminLayout /></ProtectedRoute>} />
-            <Route path="/teacher/*" element={<ProtectedRoute role="teacher"><TeacherLayout /></ProtectedRoute>} />
-            <Route path="/student/*" element={<ProtectedRoute role="student"><StudentLayout /></ProtectedRoute>} />
-          </Routes>
-        </>
+      {isNativeAndroidApp() && !isOnline && (
+        <div style={s.offlineBar}>
+          You are offline. Some data may not be up to date.
+        </div>
       )}
+      {notification && <Toast message={notification.message} onClose={() => setNotification(null)} />}
+      <UpdateAvailableModal update={updateInfo} onClose={() => setUpdateInfo(null)} />
+      <Routes>
+        <Route path="/" element={<PortalHome />} />
+        <Route path="/head" element={<Login />} />
+        <Route path="/login" element={<Navigate to="/head" replace />} />
+        <Route path="/student-login" element={<StudentLogin />} />
+        <Route path="/admin/*" element={<ProtectedRoute role="admin"><AdminLayout /></ProtectedRoute>} />
+        <Route path="/teacher/*" element={<ProtectedRoute role="teacher"><TeacherLayout /></ProtectedRoute>} />
+        <Route path="/student/*" element={<ProtectedRoute role="student"><StudentLayout /></ProtectedRoute>} />
+      </Routes>
+      {showSplash && <AnimatedSplash onComplete={() => setShowSplash(false)} />}
     </>
   );
 }
