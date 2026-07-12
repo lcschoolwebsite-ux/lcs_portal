@@ -58,8 +58,8 @@ const handleExcelUpload = (req, res, next) => {
 
 router.get("/", auth, getAll);
 router.post("/bulk-upload", auth, roles("admin"), handleExcelUpload, bulkUpload);
-router.post("/:id/photo", auth, roles("admin", "teacher"), handlePhotoUpload, uploadStudentPhoto);
-router.delete("/:id/photo", auth, roles("admin", "teacher"), removeStudentPhoto);
+router.post("/:id/photo", auth, roles("admin", "teacher", "student"), handlePhotoUpload, uploadStudentPhoto);
+router.delete("/:id/photo", auth, roles("admin", "teacher", "student"), removeStudentPhoto);
 router.get("/:id", auth, getOne);
 router.post("/", auth, roles("admin", "teacher"), create);
 router.put("/:id", auth, roles("admin", "teacher"), update);

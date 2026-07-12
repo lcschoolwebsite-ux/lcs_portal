@@ -39,6 +39,12 @@ const assertCanManageStudent = async (req, studentId) => {
     throw error;
   }
 
+  if (req.user.role === "student" && String(req.user.id) !== String(studentId)) {
+    const error = new Error("You can only manage your own photo");
+    error.status = 403;
+    throw error;
+  }
+
   if (req.user.role === "teacher") {
     const teacher = await Teacher.findById(req.user.id).select("assignedClasses");
     const assignedClassIds = teacher?.assignedClasses?.map(id => id.toString()) || [];
