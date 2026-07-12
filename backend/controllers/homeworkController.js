@@ -30,7 +30,7 @@ const canAccessHomeworkClass = async (req, classId) => {
 
 const populateHomework = query =>
   query
-    .populate("subjectId", "name")
+    .populate("subjectId", "name teacher class")
     .populate("uploadedBy", "name")
     .populate("classId", "name section")
     .populate("academicYear", "year");
@@ -40,6 +40,18 @@ const buildDownloadName = homework => {
     .trim()
     .replace(/"/g, "'");
   return rawName.toLowerCase().endsWith(".pdf") ? rawName : `${rawName}.pdf`;
+};
+
+const canTeacherManageHomework = async (req, classId, subjectId) => {
+  if (isAdmin(req)) return true;
+  if (!isTeacher(req)) return false;
+
+  const [classAccess, subjectAccess] = await Promise.all([
+    teacherCanAccessClass(req.user.id, classId),
+    teacherCanAccessSubject(req.user.id, subjectId, classId)
+  ]);
+
+  return classAccess && subjectAccess;
 };
 
 exports.create = async (req, res) => {
@@ -59,10 +71,6 @@ exports.create = async (req, res) => {
       return res.status(400).json({ message: "Homework PDF is required" });
     }
 
-    if (!(await teacherCanAccessClass(req.user.id, classId))) {
-      return res.status(403).json({ message: "Class not assigned to teacher" });
-    }
-
     const subject = await Subject.findOne({
       _id: subjectId,
       class: classId
@@ -72,7 +80,7 @@ exports.create = async (req, res) => {
       return res.status(400).json({ message: "Subject does not belong to the selected class" });
     }
 
-    if (!(await teacherCanAccessSubject(req.user.id, subjectId, classId))) {
+    if (!(await canTeacherManageHomework(req, classId, subjectId))) {
       return res.status(403).json({ message: "Subject not assigned to teacher" });
     }
 
@@ -119,6 +127,7 @@ exports.create = async (req, res) => {
 exports.getByClass = async (req, res) => {
   try {
     const { classId } = req.params;
+    const { subjectId } = req.query;
     const { academicYear } = req.query;
 
     if (!(await canAccessHomeworkClass(req, classId))) {
@@ -126,6 +135,7 @@ exports.getByClass = async (req, res) => {
     }
 
     const filter = { classId };
+    if (subjectId) filter.subjectId = subjectId;
     if (academicYear) filter.academicYear = academicYear;
 
     const homework = await populateHomework(
@@ -135,6 +145,72 @@ exports.getByClass = async (req, res) => {
     res.json(homework);
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+exports.update = async (req, res) => {
+  try {
+    const homework = await Homework.findById(req.params.id).select("_id classId subjectId storageId fileName fileUrl title description academicYear").lean();
+
+    if (!homework) {
+      return res.status(404).json({ message: "Homework not found" });
+    }
+
+    const nextClassId = req.body.classId || homework.classId;
+    const nextSubjectId = req.body.subjectId || homework.subjectId;
+    const nextTitle = String(req.body.title ?? homework.title ?? "").trim();
+    const nextDescription = String(req.body.description ?? homework.description ?? "").trim();
+    const file = req.file;
+
+    if (!nextClassId || !nextSubjectId || !nextTitle) {
+      return res.status(400).json({ message: "Class, subject, and title are required" });
+    }
+
+    if (!(await canTeacherManageHomework(req, nextClassId, nextSubjectId))) {
+      return res.status(403).json({ message: "Access denied for this homework" });
+    }
+
+    const subject = await Subject.findOne({
+      _id: nextSubjectId,
+      class: nextClassId
+    }).select("_id class academicYear name").lean();
+
+    if (!subject) {
+      return res.status(400).json({ message: "Subject does not belong to the selected class" });
+    }
+
+    let storage = null;
+    if (file?.buffer) {
+      storage = await uploadFile(file.buffer, file.originalname, file.mimetype);
+    }
+
+    const update = {
+      classId: nextClassId,
+      subjectId: nextSubjectId,
+      title: nextTitle,
+      description: nextDescription,
+      academicYear: subject.academicYear
+    };
+
+    if (storage) {
+      update.storageId = storage.storageId;
+      update.fileName = file.originalname || homework.fileName || "";
+      update.fileUrl = storage.url || "";
+    }
+
+    const updatedHomework = await Homework.findByIdAndUpdate(req.params.id, update, { new: true });
+
+    if (storage && homework.storageId) {
+      await deleteFile(homework.storageId).catch(() => {});
+    }
+
+    const populated = await populateHomework(Homework.findById(updatedHomework._id));
+    res.json({
+      message: "Homework updated",
+      homework: populated
+    });
+  } catch (error) {
+    res.status(error.status || 400).json({ message: error.message });
   }
 };
 

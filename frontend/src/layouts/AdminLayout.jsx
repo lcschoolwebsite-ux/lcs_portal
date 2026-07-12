@@ -26,6 +26,7 @@ const Announcements = lazy(() => import("../pages/admin/Announcements"));
 const Analytics = lazy(() => import("../pages/admin/Analytics"));
 const MarksOverview = lazy(() => import("../pages/admin/MarksOverview"));
 const StudentNotices = lazy(() => import("../pages/admin/StudentNotices"));
+const Homework = lazy(() => import("../pages/admin/Homework"));
 
 const menuGroups = [
   {
@@ -53,15 +54,16 @@ const menuGroups = [
       { label: "Students", path: "/admin/students", icon: "fa-solid fa-user-graduate" },
     ],
   },
-  {
-    title: "Evaluation",
-    items: [
-      { label: "Exams", path: "/admin/exams", icon: "fa-solid fa-file-invoice" },
-      { label: "Marks Overview", path: "/admin/marks-overview", icon: "fa-solid fa-chart-column" },
-      { label: "Announcements", path: "/admin/announcements", icon: "fa-solid fa-bullhorn" },
-      { label: "Student Notices", path: "/admin/student-notices", icon: "fa-solid fa-paper-plane" },
-    ],
-  },
+    {
+      title: "Evaluation",
+      items: [
+        { label: "Exams", path: "/admin/exams", icon: "fa-solid fa-file-invoice" },
+        { label: "Marks Overview", path: "/admin/marks-overview", icon: "fa-solid fa-chart-column" },
+        { label: "Announcements", path: "/admin/announcements", icon: "fa-solid fa-bullhorn" },
+        { label: "Student Notices", path: "/admin/student-notices", icon: "fa-solid fa-paper-plane" },
+        { label: "Homework", path: "/admin/homework", icon: "fa-solid fa-book-open" },
+      ],
+    },
     {
       title: "Accounts",
       items: [
@@ -194,6 +196,7 @@ export default function AdminLayout() {
               <Route path="/pending-upi-verifications" element={<PendingUpiVerifications />} />
               <Route path="/announcements" element={<Announcements />} />
               <Route path="/student-notices" element={<StudentNotices />} />
+              <Route path="/homework" element={<Homework />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="*" element={<div style={s.loading}>Page Under Construction</div>} />
             </Routes>

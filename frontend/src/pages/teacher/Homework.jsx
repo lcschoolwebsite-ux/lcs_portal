@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../../api/axios";
 import { useAuth } from "../../context/useAuth";
 import SectionTitle from "../../components/SectionTitle";
+import Modal from "../../components/Modal";
 import { getTeacherAssignedClasses, getTeacherSubjectForClass, getTeacherSubjectsForClass } from "../../utils/teacherClasses";
 
 const formatClassLabel = cls => [cls?.name, cls?.section].filter(Boolean).join(" ") || "Class";
@@ -24,7 +25,18 @@ export default function Homework() {
   const [saving, setSaving] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [selectedClassId, setSelectedClassId] = useState("");
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingHomework, setEditingHomework] = useState(null);
+  const [editError, setEditError] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const [form, setForm] = useState({
+    classId: "",
+    subjectId: "",
+    title: "",
+    description: "",
+    file: null
+  });
+  const [editForm, setEditForm] = useState({
     classId: "",
     subjectId: "",
     title: "",
@@ -38,6 +50,13 @@ export default function Homework() {
   );
 
   const subjectsForClass = getTeacherSubjectsForClass(user, form.classId, subjects);
+  const editSubjectsForClass = getTeacherSubjectsForClass(user, editForm.classId, subjects);
+
+  const canManageHomeworkItem = item => {
+    const classId = String(item.classId?._id || item.classId || "");
+    const subjectId = String(item.subjectId?._id || item.subjectId || "");
+    return getTeacherSubjectsForClass(user, classId, subjects).some(subject => String(subject._id) === subjectId);
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -56,11 +75,10 @@ export default function Homework() {
         const nextClassId = prev.classId || defaultClassId;
         const teacherSubject = getTeacherSubjectForClass(user, nextClassId, subjectRes.data || [], myClasses);
         const classSubjects = getTeacherSubjectsForClass(user, nextClassId, subjectRes.data || []);
-        const nextSubjectId = prev.subjectId || teacherSubject?._id || classSubjects[0]?._id || "";
         return {
           ...prev,
           classId: nextClassId,
-          subjectId: nextSubjectId
+          subjectId: prev.subjectId || teacherSubject?._id || classSubjects[0]?._id || ""
         };
       });
     } catch (error) {
@@ -101,6 +119,10 @@ export default function Homework() {
   }, [user]);
 
   useEffect(() => {
+    fetchHomework();
+  }, [accessibleClasses, user]);
+
+  useEffect(() => {
     if (classes.length && !form.classId) {
       const nextClassId = selectedClassId || classes[0]?._id || "";
       if (nextClassId) {
@@ -114,10 +136,6 @@ export default function Homework() {
       }
     }
   }, [classes, form.classId, selectedClassId, subjects, user]);
-
-  useEffect(() => {
-    fetchHomework();
-  }, [accessibleClasses, user]);
 
   const handleClassChange = value => {
     const teacherSubject = getTeacherSubjectForClass(user, value, subjects, classes);
@@ -176,6 +194,62 @@ export default function Homework() {
     }
   };
 
+  const openEditModal = item => {
+    const classId = String(item.classId?._id || item.classId || "");
+    const subjectId = String(item.subjectId?._id || item.subjectId || "");
+    setEditingHomework(item);
+    setEditError("");
+    setEditForm({
+      classId,
+      subjectId,
+      title: item.title || "",
+      description: item.description || "",
+      file: null
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleEditClassChange = value => {
+    const classSubjects = getTeacherSubjectsForClass(user, value, subjects);
+    setEditForm(prev => ({
+      ...prev,
+      classId: value,
+      subjectId: classSubjects.some(subject => String(subject._id) === String(prev.subjectId))
+        ? prev.subjectId
+        : classSubjects[0]?._id || "",
+      file: prev.file
+    }));
+  };
+
+  const handleUpdate = async e => {
+    e.preventDefault();
+    if (!editingHomework) return;
+    if (!editForm.classId || !editForm.subjectId || !editForm.title.trim()) {
+      setEditError("Please choose a class, subject, and title.");
+      return;
+    }
+
+    setSavingEdit(true);
+    setEditError("");
+    try {
+      const formData = new FormData();
+      formData.append("classId", editForm.classId);
+      formData.append("subjectId", editForm.subjectId);
+      formData.append("title", editForm.title.trim());
+      formData.append("description", editForm.description.trim());
+      if (editForm.file) formData.append("file", editForm.file);
+
+      await api.put(`/homework/${editingHomework._id}`, formData);
+      setIsEditOpen(false);
+      setEditingHomework(null);
+      await fetchHomework();
+    } catch (error) {
+      setEditError(error.response?.data?.message || "Failed to update homework.");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   if (loading) {
     return <div style={s.loading}>Loading homework tools...</div>;
   }
@@ -185,7 +259,7 @@ export default function Homework() {
       <SectionTitle title="Homework Upload" subtitle="Post class homework PDFs for your students." />
 
       <div style={s.pageIntro}>
-        Upload a PDF for one of your assigned classes. Subjects are filtered to the selected class, and homework posts appear below for quick review or deletion.
+        Upload a PDF for one of your assigned classes. Only subjects assigned to you for that class will appear.
       </div>
 
       {uploadError && <div style={s.errorBox}>{uploadError}</div>}
@@ -194,16 +268,10 @@ export default function Homework() {
         <div style={s.row}>
           <div style={s.field}>
             <label style={s.label}>Class</label>
-            <select
-              style={s.input}
-              value={form.classId}
-              onChange={e => handleClassChange(e.target.value)}
-            >
+            <select style={s.input} value={form.classId} onChange={e => handleClassChange(e.target.value)}>
               <option value="">Select Class</option>
               {accessibleClasses.map(cls => (
-                <option key={cls._id} value={cls._id}>
-                  {formatClassLabel(cls)}
-                </option>
+                <option key={cls._id} value={cls._id}>{formatClassLabel(cls)}</option>
               ))}
             </select>
           </div>
@@ -218,9 +286,7 @@ export default function Homework() {
             >
               <option value="">Select Subject</option>
               {subjectsForClass.map(subject => (
-                <option key={subject._id} value={subject._id}>
-                  {subject.name}
-                </option>
+                <option key={subject._id} value={subject._id}>{subject.name}</option>
               ))}
             </select>
           </div>
@@ -285,9 +351,12 @@ export default function Homework() {
                   </div>
                 </div>
                 <div style={s.itemActions}>
-                  <button type="button" style={s.deleteBtn} onClick={() => handleDelete(item._id)}>
-                    Delete
-                  </button>
+                  {canManageHomeworkItem(item) && (
+                    <>
+                      <button type="button" style={s.editBtn} onClick={() => openEditModal(item)}>Edit</button>
+                      <button type="button" style={s.deleteBtn} onClick={() => handleDelete(item._id)}>Delete</button>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -300,6 +369,79 @@ export default function Homework() {
           ))
         )}
       </div>
+
+      <Modal
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        title="Edit Homework"
+        subtitle="Update the homework details or replace the PDF."
+        maxWidth="720px"
+      >
+        <form onSubmit={handleUpdate} style={s.editForm}>
+          {editError && <div style={s.errorBox}>{editError}</div>}
+
+          <div style={s.row}>
+            <div style={s.field}>
+              <label style={s.label}>Class</label>
+              <select style={s.input} value={editForm.classId} onChange={e => handleEditClassChange(e.target.value)}>
+                {accessibleClasses.map(cls => (
+                  <option key={cls._id} value={cls._id}>{formatClassLabel(cls)}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={s.field}>
+              <label style={s.label}>Subject</label>
+              <select
+                style={s.input}
+                value={editForm.subjectId}
+                onChange={e => setEditForm(prev => ({ ...prev, subjectId: e.target.value }))}
+              >
+                {editSubjectsForClass.map(subject => (
+                  <option key={subject._id} value={subject._id}>{subject.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div style={s.field}>
+            <label style={s.label}>Title</label>
+            <input
+              style={s.input}
+              type="text"
+              value={editForm.title}
+              onChange={e => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+            />
+          </div>
+
+          <div style={s.field}>
+            <label style={s.label}>Description</label>
+            <textarea
+              style={{ ...s.input, minHeight: "110px", resize: "vertical" }}
+              value={editForm.description}
+              onChange={e => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+            />
+          </div>
+
+          <div style={s.field}>
+            <label style={s.label}>Replace PDF</label>
+            <input
+              style={s.fileInput}
+              type="file"
+              accept="application/pdf"
+              onChange={e => setEditForm(prev => ({ ...prev, file: e.target.files?.[0] || null }))}
+            />
+            <div style={s.helperText}>
+              Leave blank to keep the current PDF.
+              {editForm.file ? ` Selected: ${editForm.file.name}` : ""}
+            </div>
+          </div>
+
+          <button type="submit" style={s.submitBtn} disabled={savingEdit}>
+            {savingEdit ? "Saving..." : "Save Changes"}
+          </button>
+        </form>
+      </Modal>
     </div>
   );
 }
@@ -326,7 +468,9 @@ const s = {
   itemTitle: { fontSize: "1.02rem", fontWeight: 900, color: "var(--navy)", marginBottom: "6px" },
   itemMeta: { fontSize: "0.82rem", color: "var(--text-muted)", fontWeight: 700 },
   itemActions: { display: "flex", gap: "10px", flexWrap: "wrap" },
+  editBtn: { padding: "10px 14px", borderRadius: "14px", border: "1px solid var(--navy)", background: "white", color: "var(--navy)", fontWeight: 900, cursor: "pointer" },
   deleteBtn: { padding: "10px 14px", borderRadius: "14px", border: "1px solid var(--danger-text)", background: "white", color: "var(--danger-text)", fontWeight: 900, cursor: "pointer" },
   itemDescription: { marginTop: "12px", color: "var(--navy)", fontWeight: 600, lineHeight: 1.6, whiteSpace: "pre-wrap" },
-  itemFooter: { marginTop: "14px", display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap", fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: 700 }
+  itemFooter: { marginTop: "14px", display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap", fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: 700 },
+  editForm: { display: "flex", flexDirection: "column", gap: "16px" }
 };

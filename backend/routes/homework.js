@@ -2,7 +2,7 @@ const router = require("express").Router();
 const multer = require("multer");
 const auth = require("../middleware/auth");
 const roles = require("../middleware/roles");
-const { create, getByClass, download, remove } = require("../controllers/homeworkController");
+const { create, getByClass, download, remove, update } = require("../controllers/homeworkController");
 
 const homeworkUpload = multer({
   storage: multer.memoryStorage(),
@@ -35,6 +35,7 @@ const handleHomeworkUpload = (req, res, next) => {
 router.post("/", auth, roles("teacher"), handleHomeworkUpload, create);
 router.get("/class/:classId", auth, roles("admin", "teacher", "student"), getByClass);
 router.get("/:id/download", auth, roles("admin", "teacher", "student"), download);
+router.put("/:id", auth, roles("admin", "teacher"), handleHomeworkUpload, update);
 router.delete("/:id", auth, roles("admin", "teacher"), remove);
 
 module.exports = router;
