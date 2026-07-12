@@ -1,7 +1,7 @@
 const Homework = require("../models/Homework");
 const Student = require("../models/Student");
 const Subject = require("../models/Subject");
-const { teacherCanAccessClass } = require("../utils/teacherClassAccess");
+const { teacherCanAccessClass, teacherCanAccessSubject } = require("../utils/teacherClassAccess");
 const { uploadFile, getFileStream, deleteFile } = require("../utils/fileStorage");
 const { notifyClassStudents } = require("../utils/pushNotification");
 
@@ -70,6 +70,10 @@ exports.create = async (req, res) => {
 
     if (!subject) {
       return res.status(400).json({ message: "Subject does not belong to the selected class" });
+    }
+
+    if (!(await teacherCanAccessSubject(req.user.id, subjectId, classId))) {
+      return res.status(403).json({ message: "Subject not assigned to teacher" });
     }
 
     let storage = null;

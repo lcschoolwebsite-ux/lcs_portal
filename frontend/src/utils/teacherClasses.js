@@ -72,3 +72,23 @@ export const getTeacherSubjectForClass = (user, classId, subjects = [], classes 
 
   return matches[0] || null;
 };
+
+export const getTeacherSubjectsForClass = (user, classId, subjects = []) => {
+  const normalizedClassId = String(classId || "");
+  const userId = String(user?.id || user?._id || "");
+  const subjectList = Array.isArray(subjects) ? subjects : [];
+  const assignedSubjectIds = new Set(
+    Array.isArray(user?.assignedSubjects)
+      ? user.assignedSubjects.map(subject => String(subject?._id || subject?.id || subject)).filter(Boolean)
+      : []
+  );
+
+  return subjectList.filter(subject => {
+    const subjectClassId = String(subject?.class?._id || subject?.class || subject?.classId || "");
+    const teacherId = String(subject?.teacher?._id || subject?.teacher || "");
+    const subjectId = String(subject?._id || subject?.id || "");
+    return subjectClassId === normalizedClassId && (
+      assignedSubjectIds.has(subjectId) || teacherId === userId
+    );
+  });
+};

@@ -1,4 +1,5 @@
 const Class = require("../models/Class");
+const Subject = require("../models/Subject");
 const Teacher = require("../models/Teacher");
 
 const toIdString = value => (value == null ? "" : value.toString());
@@ -24,6 +25,24 @@ const teacherCanAccessClass = async (teacherId, classId) => {
   return assignedClassIds.includes(toIdString(classId)) || classTeacherId === toIdString(teacherId);
 };
 
+const teacherCanAccessSubject = async (teacherId, subjectId, classId = null) => {
+  if (!teacherId || !subjectId) return false;
+
+  const [teacher, subject] = await Promise.all([
+    Teacher.findById(teacherId).select("assignedSubjects").lean(),
+    Subject.findById(subjectId).select("_id class teacher").lean()
+  ]);
+
+  if (!teacher || !subject) return false;
+  if (classId && toIdString(subject.class) !== toIdString(classId)) return false;
+
+  const assignedSubjectIds = (teacher.assignedSubjects || []).map(toIdString);
+  const subjectTeacherId = toIdString(subject.teacher);
+
+  return assignedSubjectIds.includes(toIdString(subjectId)) || subjectTeacherId === toIdString(teacherId);
+};
+
 module.exports = {
-  teacherCanAccessClass
+  teacherCanAccessClass,
+  teacherCanAccessSubject
 };

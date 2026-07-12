@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../../api/axios";
 import { useAuth } from "../../context/useAuth";
 import SectionTitle from "../../components/SectionTitle";
-import { getTeacherAssignedClasses, getTeacherSubjectForClass } from "../../utils/teacherClasses";
+import { getTeacherAssignedClasses, getTeacherSubjectForClass, getTeacherSubjectsForClass } from "../../utils/teacherClasses";
 
 const formatClassLabel = cls => [cls?.name, cls?.section].filter(Boolean).join(" ") || "Class";
 
@@ -37,7 +37,7 @@ export default function Homework() {
     [user, classes]
   );
 
-  const subjectsForClass = subjects.filter(subject => String(subject.class?._id || subject.class || "") === String(form.classId));
+  const subjectsForClass = getTeacherSubjectsForClass(user, form.classId, subjects);
 
   const fetchData = async () => {
     setLoading(true);
@@ -55,7 +55,8 @@ export default function Homework() {
       setForm(prev => {
         const nextClassId = prev.classId || defaultClassId;
         const teacherSubject = getTeacherSubjectForClass(user, nextClassId, subjectRes.data || [], myClasses);
-        const nextSubjectId = prev.subjectId || teacherSubject?._id || (subjectRes.data || []).find(subject => String(subject.class?._id || subject.class || "") === String(nextClassId))?._id || "";
+        const classSubjects = getTeacherSubjectsForClass(user, nextClassId, subjectRes.data || []);
+        const nextSubjectId = prev.subjectId || teacherSubject?._id || classSubjects[0]?._id || "";
         return {
           ...prev,
           classId: nextClassId,
@@ -104,10 +105,11 @@ export default function Homework() {
       const nextClassId = selectedClassId || classes[0]?._id || "";
       if (nextClassId) {
         const teacherSubject = getTeacherSubjectForClass(user, nextClassId, subjects, classes);
+        const classSubjects = getTeacherSubjectsForClass(user, nextClassId, subjects);
         setForm(prev => ({
           ...prev,
           classId: nextClassId,
-          subjectId: teacherSubject?._id || prev.subjectId || ""
+          subjectId: teacherSubject?._id || classSubjects[0]?._id || prev.subjectId || ""
         }));
       }
     }
@@ -119,11 +121,12 @@ export default function Homework() {
 
   const handleClassChange = value => {
     const teacherSubject = getTeacherSubjectForClass(user, value, subjects, classes);
+    const classSubjects = getTeacherSubjectsForClass(user, value, subjects);
     setSelectedClassId(value);
     setForm(prev => ({
       ...prev,
       classId: value,
-      subjectId: teacherSubject?._id || "",
+      subjectId: teacherSubject?._id || classSubjects[0]?._id || "",
       file: prev.file
     }));
   };
