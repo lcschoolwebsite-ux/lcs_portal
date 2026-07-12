@@ -1,72 +1,149 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import api from "../../api/axios";
 import SectionTitle from "../../components/SectionTitle";
 import { useAuth } from "../../context/useAuth";
-import { getTeacherAssignedClasses } from "../../utils/teacherClasses";
+import { getTeacherAssignedClasses, getTeacherSubjectsForClass } from "../../utils/teacherClasses";
 
 export default function Marks() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [exams, setExams] = useState([]);
   const [classes, setClasses] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [examTypes, setExamTypes] = useState([]);
   const [selectedExamId, setSelectedExamId] = useState(searchParams.get("examId") || "");
+  const [selectedExamType, setSelectedExamType] = useState(searchParams.get("examType") || "");
   const [classFilter, setClassFilter] = useState(searchParams.get("classId") || "");
+  const [subjectFilter, setSubjectFilter] = useState(searchParams.get("subjectId") || "");
   const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [metaLoading, setMetaLoading] = useState(true);
+  const [examsLoading, setExamsLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [canEdit, setCanEdit] = useState(true);
 
   const exam = exams.find(item => item._id === selectedExamId);
+  const myClasses = useMemo(() => getTeacherAssignedClasses(user, classes), [user, classes]);
+  const availableSubjects = useMemo(
+    () => (classFilter ? getTeacherSubjectsForClass(user, classFilter, subjects) : []),
+    [user, classFilter, subjects]
+  );
+
+  const updateSearchParams = (updates, removeKeys = []) => {
+    const next = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    });
+    removeKeys.forEach(key => next.delete(key));
+    setSearchParams(next, { replace: true });
+  };
 
   useEffect(() => {
-    const fetchExams = async () => {
+    const fetchMeta = async () => {
+      setMetaLoading(true);
       try {
-        const [examRes, classRes] = await Promise.all([
-          api.get(`/exams${classFilter ? `?classId=${classFilter}` : ""}`),
-          api.get("/classes")
+        const [classRes, subjectRes, examTypeRes] = await Promise.all([
+          api.get("/classes"),
+          api.get("/subjects"),
+          api.get("/exam-types")
         ]);
-        const myClasses = getTeacherAssignedClasses(user, classRes.data || []);
-        setClasses(myClasses);
-        const data = examRes.data || [];
-        setExams(data);
+        setClasses(getTeacherAssignedClasses(user, classRes.data || []));
+        setSubjects(subjectRes.data || []);
+        setExamTypes(examTypeRes.data || []);
+      } catch (e) {
+        alert(e.response?.data?.message || "Failed to load marks metadata");
+      } finally {
+        setMetaLoading(false);
+      }
+    };
+
+    if (user) fetchMeta();
+    else {
+      setClasses([]);
+      setSubjects([]);
+      setExamTypes([]);
+      setMetaLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (metaLoading) return;
+
+    const fetchExams = async () => {
+      setExamsLoading(true);
+      try {
+        const params = {};
+        if (selectedExamType) params.examType = selectedExamType;
+        if (classFilter) params.classId = classFilter;
+        if (subjectFilter) params.subjectId = subjectFilter;
+
+        const { data } = await api.get("/exams", { params });
+        const dataList = Array.isArray(data) ? data : [];
+        setExams(dataList);
+
         const requestedExam = searchParams.get("examId");
-        const nextExamId = data.some(exam => exam._id === requestedExam) ? requestedExam : data[0]?._id;
-        if (nextExamId) setSelectedExamId(nextExamId);
+        if (requestedExam) {
+          const matchedExam = dataList.find(item => item._id === requestedExam);
+          if (matchedExam) {
+            setSelectedExamId(requestedExam);
+            setSelectedExamType(matchedExam.examType || "");
+            setClassFilter(matchedExam.class?._id || matchedExam.class || "");
+            setSubjectFilter(matchedExam.subject?._id || matchedExam.subject || "");
+            return;
+          }
+        }
+
+        if (selectedExamId && !dataList.some(item => item._id === selectedExamId)) {
+          setSelectedExamId("");
+        } else if (!selectedExamId && dataList.length === 1 && selectedExamType && classFilter && subjectFilter) {
+          setSelectedExamId(dataList[0]._id);
+        }
       } catch (e) {
         alert(e.response?.data?.message || "Failed to load exams");
       } finally {
-        setLoading(false);
+        setExamsLoading(false);
       }
     };
+
     fetchExams();
-  }, [classFilter, searchParams, user]);
+  }, [classFilter, metaLoading, searchParams, selectedExamType, subjectFilter, user]);
 
   const handleExamChange = (examId) => {
     setSelectedExamId(examId);
-    const next = new URLSearchParams(searchParams);
-    if (examId) next.set("examId", examId);
-    else next.delete("examId");
-    setSearchParams(next, { replace: true });
+    updateSearchParams({ examId });
+  };
+
+  const handleExamTypeChange = (examType) => {
+    setSelectedExamType(examType);
+    setSelectedExamId("");
+    setSubjectFilter("");
+    updateSearchParams({ examType }, ["examId", "subjectId"]);
   };
 
   const handleClassChange = (classId) => {
     setClassFilter(classId);
-    const next = new URLSearchParams(searchParams);
-    if (classId) next.set("classId", classId);
-    else next.delete("classId");
-    next.delete("examId");
-    setSearchParams(next, { replace: true });
+    setSubjectFilter("");
     setSelectedExamId("");
+    updateSearchParams({ classId }, ["examId", "subjectId"]);
+  };
+
+  const handleSubjectChange = (subjectId) => {
+    setSubjectFilter(subjectId);
+    setSelectedExamId("");
+    updateSearchParams({ subjectId }, ["examId"]);
   };
 
   useEffect(() => {
     const fetchMarks = async () => {
       if (!selectedExamId) {
         setStudents([]);
+        setLoading(false);
         return;
       }
 
+      setStudents([]);
       setLoading(true);
       try {
         const { data } = await api.get(`/marks/exam/${selectedExamId}`);
@@ -137,7 +214,7 @@ export default function Marks() {
     }
   };
 
-  if (loading && !exam) return <div>Loading marks...</div>;
+  if ((metaLoading || examsLoading) && !exam && !selectedExamId) return <div>Loading marks...</div>;
 
   return (
     <div>
@@ -148,32 +225,68 @@ export default function Marks() {
         </div>
       )}
 
-      {classes.length > 0 && (
+      {examTypes.length > 0 && (
         <div style={s.selectorRow}>
-          <label style={s.selectorLabel}>Select Class</label>
-          <select style={s.examSelect} value={classFilter} onChange={e => handleClassChange(e.target.value)}>
-            <option value="">All My Classes</option>
-            {classes.map(item => (
-              <option key={item._id} value={item._id}>{item.name}{item.section}</option>
+          <label style={s.selectorLabel}>Exam Type</label>
+          <select style={s.examSelect} value={selectedExamType} onChange={e => handleExamTypeChange(e.target.value)}>
+            <option value="">Select exam type</option>
+            {examTypes.map(item => (
+              <option key={item._id} value={item.name}>{item.name}</option>
             ))}
           </select>
         </div>
       )}
 
       <div style={s.selectorRow}>
-        <label style={s.selectorLabel}>Select Exam</label>
-        <select style={s.examSelect} value={selectedExamId} onChange={e => handleExamChange(e.target.value)}>
-          <option value="">Choose an exam</option>
-          {exams.map(item => (
-            <option key={item._id} value={item._id}>
-              {item.title} - {item.subject?.name || "Subject"} - {item.class?.name || ""}{item.class?.section || ""}
-            </option>
+        <label style={s.selectorLabel}>Class</label>
+        <select style={s.examSelect} value={classFilter} onChange={e => handleClassChange(e.target.value)}>
+          <option value="">Select class</option>
+          {myClasses.map(item => (
+            <option key={item._id} value={item._id}>{item.name}{item.section}</option>
           ))}
         </select>
       </div>
 
+      <div style={s.selectorRow}>
+        <label style={s.selectorLabel}>Subject</label>
+        <select
+          style={s.examSelect}
+          value={subjectFilter}
+          onChange={e => handleSubjectChange(e.target.value)}
+          disabled={!classFilter}
+        >
+          <option value="">{classFilter ? "Select subject" : "Select a class first"}</option>
+          {availableSubjects.map(item => (
+            <option key={item._id} value={item._id}>{item.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div style={s.selectorRow}>
+        <label style={s.selectorLabel}>Exam</label>
+        <select style={s.examSelect} value={selectedExamId} onChange={e => handleExamChange(e.target.value)} disabled={!subjectFilter}>
+          <option value="">{subjectFilter ? "Choose an exam" : "Select subject first"}</option>
+          {exams
+            .filter(item => {
+              if (selectedExamType && item.examType !== selectedExamType) return false;
+              if (classFilter && String(item.class?._id || item.class || "") !== String(classFilter)) return false;
+              if (subjectFilter && String(item.subject?._id || item.subject || "") !== String(subjectFilter)) return false;
+              return true;
+            })
+            .map(item => (
+              <option key={item._id} value={item._id}>
+                {item.title} - {item.subject?.name || "Subject"} - {item.class?.name || ""}{item.class?.section || ""}
+              </option>
+            ))}
+        </select>
+      </div>
+
+      {classFilter && !availableSubjects.length && (
+        <div style={s.empty}>No assigned subjects are available for this class.</div>
+      )}
+
       {!exam ? (
-        <div style={s.empty}>No exams available for marks entry.</div>
+        <div style={s.empty}>Select an exam type, class, subject, and exam to enter marks.</div>
       ) : (
         <>
 
