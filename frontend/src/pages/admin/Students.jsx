@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import api from "../../api/axios";
 import Table from "../../components/Table";
@@ -22,6 +22,10 @@ export default function Students() {
   const [savingPermission, setSavingPermission] = useState(false);
   const [selectedFilterClassCount, setSelectedFilterClassCount] = useState(null);
   const [selectedAddClassCount, setSelectedAddClassCount] = useState(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoMessage, setPhotoMessage] = useState("");
+  const [photoError, setPhotoError] = useState("");
+  const photoInputRef = useRef(null);
   
   const [form, setForm] = useState({
     name: "", dob: "", fatherName: "", motherName: "", mobile: "", alternateMobile: "", email: "", address: "",
@@ -116,6 +120,8 @@ export default function Students() {
   const handleOpenEdit = (s) => {
     setIsEditing(true);
     setSelectedStudent(s);
+    setPhotoMessage("");
+    setPhotoError("");
     setForm({
       name: s.name || "", 
       dob: s.dob || "", 
@@ -130,6 +136,11 @@ export default function Students() {
       class: s.class?._id || ""
     });
     setIsModalOpen(true);
+  };
+
+  const updateStudentInList = (updatedStudent) => {
+    setSelectedStudent(updatedStudent);
+    setStudents(prev => prev.map(student => student._id === updatedStudent._id ? updatedStudent : student));
   };
 
   const handleSave = async () => {
@@ -155,6 +166,61 @@ export default function Students() {
       fetchData();
     } catch (e) {
       alert("Delete failed");
+    }
+  };
+
+  const handlePhotoChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedStudent) return;
+
+    setPhotoMessage("");
+    setPhotoError("");
+
+    if (!file.type.startsWith("image/")) {
+      setPhotoError("Please choose an image file.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setPhotoError("Photo must be 2 MB or smaller.");
+      event.target.value = "";
+      return;
+    }
+
+    const payload = new FormData();
+    payload.append("photo", file);
+
+    setPhotoUploading(true);
+    try {
+      const { data } = await api.post(`/students/${selectedStudent._id}/photo`, payload, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+      if (data.student) updateStudentInList(data.student);
+      setPhotoMessage("Student photo updated.");
+    } catch (e) {
+      setPhotoError(e.response?.data?.message || "Unable to upload photo.");
+    } finally {
+      setPhotoUploading(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    if (!selectedStudent?.photoUrl) return;
+    if (!window.confirm("Remove this student's photo?")) return;
+
+    setPhotoMessage("");
+    setPhotoError("");
+    setPhotoUploading(true);
+    try {
+      const { data } = await api.delete(`/students/${selectedStudent._id}/photo`);
+      if (data.student) updateStudentInList(data.student);
+      setPhotoMessage("Student photo removed.");
+    } catch (e) {
+      setPhotoError(e.response?.data?.message || "Unable to remove photo.");
+    } finally {
+      setPhotoUploading(false);
     }
   };
 
@@ -264,7 +330,13 @@ export default function Students() {
           <>
             <td style={st.td}>
               <div style={st.profileFlex}>
-                <div style={st.avatar}>{stRow.name[0]}</div>
+                <div style={st.avatar}>
+                  {stRow.photoUrl ? (
+                    <img src={stRow.photoUrl} alt={stRow.name || "Student"} style={st.avatarImg} />
+                  ) : (
+                    stRow.name?.[0] || "S"
+                  )}
+                </div>
                 <div>
                   <div style={st.name}>{stRow.name}</div>
                   <div style={st.email}>{stRow.email || "No email"}</div>
@@ -310,6 +382,36 @@ export default function Students() {
         )}
       >
         <div style={st.formGrid}>
+          {isEditing && (
+            <div style={st.photoPanel}>
+              <div style={st.photoPreview}>
+                {selectedStudent?.photoUrl ? (
+                  <img src={selectedStudent.photoUrl} alt={selectedStudent.name || "Student"} style={st.photoImg} />
+                ) : (
+                  <div style={st.photoAvatar}>{selectedStudent?.name?.[0] || "S"}</div>
+                )}
+              </div>
+              <div style={st.photoMeta}>
+                <div style={st.photoTitle}>Student Photo</div>
+                <div style={st.photoHint}>Upload JPG, PNG, or WebP up to 2 MB.</div>
+                <div style={st.photoActions}>
+                  <button type="button" style={st.photoBtn} onClick={() => photoInputRef.current?.click()} disabled={photoUploading}>
+                    <i className={`fa-solid ${photoUploading ? "fa-circle-notch fa-spin" : "fa-camera"}`}></i>
+                    {selectedStudent?.photoUrl ? "Change Photo" : "Add Photo"}
+                  </button>
+                  {selectedStudent?.photoUrl && (
+                    <button type="button" style={st.removePhotoBtn} onClick={handleRemovePhoto} disabled={photoUploading}>
+                      <i className="fa-solid fa-xmark"></i> Remove Photo
+                    </button>
+                  )}
+                </div>
+                {photoMessage && <div style={st.photoSuccess}>{photoMessage}</div>}
+                {photoError && <div style={st.photoError}>{photoError}</div>}
+                <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoChange} style={st.fileInput} />
+              </div>
+            </div>
+          )}
+
           {/* Section 1: Basic Info */}
           <div style={st.sectionTitle}>1. Basic Information</div>
           <div style={st.row}>
@@ -413,7 +515,8 @@ const s = {
 const st = {
   td: { padding: "1rem", fontSize: "0.9rem", color: "var(--text)", borderBottom: "1px solid var(--border)" },
   profileFlex: { display: "flex", alignItems: "center", gap: "0.75rem" },
-  avatar: { width: "32px", height: "32px", borderRadius: "50%", background: "var(--gold-pale)", color: "var(--navy-dark)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", fontSize: "0.8rem" },
+  avatar: { width: "34px", height: "34px", borderRadius: "50%", background: "var(--gold-pale)", color: "var(--navy-dark)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", fontSize: "0.8rem", overflow: "hidden", flex: "0 0 auto" },
+  avatarImg: { width: "100%", height: "100%", objectFit: "cover" },
   name: { fontWeight: "600", color: "var(--navy)" },
   email: { fontSize: "0.75rem", color: "var(--text-muted)" },
   subText: { fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "3px" },
@@ -422,6 +525,19 @@ const st = {
   cancelBtn: { padding: "12px 20px", background: "var(--light-bg)", border: "none", color: "var(--text-muted)", fontWeight: "700", cursor: "pointer", borderRadius: "10px" },
   saveBtn: { flex: 1, padding: "12px 24px", background: "linear-gradient(135deg, var(--gold), var(--gold-light))", color: "var(--navy-dark)", borderRadius: "10px", border: "none", fontWeight: "800", cursor: "pointer", boxShadow: "0 4px 15px rgba(200,150,12,0.2)", animation: 'shimmer 3s linear infinite' },
   formGrid: { display: "flex", flexDirection: "column", gap: "1.25rem" },
+  photoPanel: { display: "flex", alignItems: "center", gap: "18px", background: "var(--light-bg)", border: "1px solid var(--border)", borderRadius: "14px", padding: "18px" },
+  photoPreview: { width: "92px", height: "92px", borderRadius: "50%", background: "var(--white)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", border: "3px solid var(--gold)", overflow: "hidden" },
+  photoImg: { width: "100%", height: "100%", objectFit: "cover" },
+  photoAvatar: { width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, var(--gold), var(--gold-light))", color: "var(--navy-dark)", fontSize: "2rem", fontWeight: "900" },
+  photoMeta: { flex: 1, minWidth: 0 },
+  photoTitle: { color: "var(--navy)", fontWeight: "900", fontSize: "1rem", marginBottom: "4px" },
+  photoHint: { color: "var(--text-muted)", fontWeight: "700", fontSize: "0.78rem", marginBottom: "12px" },
+  photoActions: { display: "flex", flexWrap: "wrap", gap: "10px" },
+  photoBtn: { padding: "9px 14px", borderRadius: "9px", border: "none", background: "var(--navy)", color: "var(--white)", fontWeight: "800", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "7px" },
+  removePhotoBtn: { padding: "9px 14px", borderRadius: "9px", border: "1px solid var(--danger-text)", background: "var(--danger-bg)", color: "var(--danger-text)", fontWeight: "800", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "7px" },
+  fileInput: { display: "none" },
+  photoSuccess: { display: "inline-block", marginTop: "10px", background: "var(--success-bg)", color: "var(--success-text)", padding: "6px 10px", borderRadius: "8px", fontSize: "0.76rem", fontWeight: "800" },
+  photoError: { display: "inline-block", marginTop: "10px", background: "var(--danger-bg)", color: "var(--danger-text)", padding: "6px 10px", borderRadius: "8px", fontSize: "0.76rem", fontWeight: "800" },
   sectionTitle: { fontSize: "0.85rem", fontWeight: "800", color: "var(--navy)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginTop: "8px", textTransform: "uppercase", letterSpacing: "0.05em" },
   formItem: { display: "flex", flexDirection: "column", gap: "0.5rem" },
   row: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" },

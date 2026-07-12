@@ -197,7 +197,21 @@ export default function Students() {
         data={students}
         renderRow={(stRow) => (
           <>
-            <td style={st.td}><strong>{stRow.name}</strong></td>
+            <td style={st.td}>
+              <div style={st.profileFlex}>
+                <div style={st.avatar}>
+                  {stRow.photoUrl ? (
+                    <img src={stRow.photoUrl} alt={stRow.name || "Student"} style={st.avatarImg} />
+                  ) : (
+                    stRow.name?.[0] || "S"
+                  )}
+                </div>
+                <div>
+                  <strong>{stRow.name}</strong>
+                  {stRow.photoUrl && <div style={st.subText}>Photo on file</div>}
+                </div>
+              </div>
+            </td>
             <td style={st.td}>{stRow.satCode}</td>
             <td style={st.td}>{stRow.class?.name}{stRow.class?.section}</td>
             <td style={st.td}>{stRow.fatherName}</td>
@@ -338,6 +352,9 @@ const s = {
 
 const st = {
   td: { padding: "1rem", fontSize: "0.9rem", color: "var(--text)" },
+  profileFlex: { display: "flex", alignItems: "center", gap: "0.75rem" },
+  avatar: { width: "34px", height: "34px", borderRadius: "50%", background: "var(--gold-pale)", color: "var(--navy-dark)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", fontSize: "0.8rem", overflow: "hidden", flex: "0 0 auto" },
+  avatarImg: { width: "100%", height: "100%", objectFit: "cover" },
   subText: { fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "3px" },
   actionBtn: { background: "var(--light-bg)", border: "1px solid var(--border)", padding: "6px 14px", borderRadius: "8px", cursor: "pointer", fontSize: "0.8rem", color: "var(--navy)", fontWeight: "700", display: 'flex', alignItems: 'center', gap: '6px' },
   cancelBtn: { padding: "12px 20px", background: "var(--light-bg)", border: "none", color: "var(--text-muted)", fontWeight: "700", cursor: "pointer", borderRadius: "10px" },
