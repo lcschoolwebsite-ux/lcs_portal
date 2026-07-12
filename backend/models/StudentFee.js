@@ -42,7 +42,7 @@ const studentFeeSchema = new mongoose.Schema({
       rejectionReason: { type: String, trim: true, default: "" },
       installmentMode: {
         type: String,
-        enum: ["THIRD", "CUSTOM", "FULL"],
+        enum: ["HALF", "THIRD", "CUSTOM", "FULL"],
         default: null
       }
     }

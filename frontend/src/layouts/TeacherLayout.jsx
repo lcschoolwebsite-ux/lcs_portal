@@ -17,6 +17,7 @@ const AddStudent = lazy(() => import("../pages/teacher/AddStudent"));
 const Attendance = lazy(() => import("../pages/teacher/Attendance"));
 const Fees = lazy(() => import("../pages/teacher/Fees"));
 const Marks = lazy(() => import("../pages/teacher/Marks"));
+const Homework = lazy(() => import("../pages/teacher/Homework"));
 const Exams = lazy(() => import("../pages/teacher/Exams"));
 const Announcements = lazy(() => import("../pages/teacher/Announcements"));
 const Profile = lazy(() => import("../pages/teacher/Profile"));
@@ -37,6 +38,7 @@ const MENU_GROUPS = [
       { label: "My Students", path: "/teacher/students", icon: "fa-solid fa-users" },
       { label: "Add Student", path: "/teacher/students/add", icon: "fa-solid fa-user-plus" },
       { label: "Attendance", path: "/teacher/attendance", icon: "fa-solid fa-clipboard-user" },
+      { label: "Homework", path: "/teacher/homework", icon: "fa-solid fa-book-open" },
       { label: "Fee Management", path: "/teacher/fees", icon: "fa-solid fa-wallet" },
     ]
   },
@@ -207,6 +209,7 @@ export default function TeacherLayout() {
               <Route path="/students" element={<Students />} />
               <Route path="/students/add" element={<AddStudent />} />
               <Route path="/attendance" element={<Attendance />} />
+              <Route path="/homework" element={<Homework />} />
               <Route path="/fees" element={<Fees />} />
               <Route path="/marks" element={<Marks />} />
               <Route path="/exams" element={<Exams />} />

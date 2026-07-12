@@ -15,6 +15,7 @@ const Attendance = lazy(() => import("../pages/student/Attendance"));
 const Marks = lazy(() => import("../pages/student/Marks"));
 const Fees = lazy(() => import("../pages/student/Fees"));
 const Announcements = lazy(() => import("../pages/student/Announcements"));
+const Homework = lazy(() => import("../pages/student/Homework"));
 
 const MENU_GROUPS = [
   {
@@ -23,6 +24,7 @@ const MENU_GROUPS = [
       { label: "Dashboard", shortLabel: "Home", path: "/student", icon: "fa-solid fa-house" },
       { label: "My Profile", shortLabel: "Profile", path: "/student/profile", icon: "fa-solid fa-id-card" },
       { label: "Announcements", shortLabel: "Notices", path: "/student/announcements", icon: "fa-solid fa-bullhorn" },
+      { label: "Homework", shortLabel: "Homework", path: "/student/homework", icon: "fa-solid fa-book-open" },
     ]
   },
   {
@@ -183,6 +185,7 @@ export default function StudentLayout() {
               <Route path="/marks/:examType" element={<Marks />} />
               <Route path="/fees" element={<Fees />} />
               <Route path="/announcements" element={<Announcements />} />
+              <Route path="/homework" element={<Homework />} />
               <Route path="*" element={<div style={s.loading}>Page coming soon...</div>} />
             </Routes>
           </Suspense>

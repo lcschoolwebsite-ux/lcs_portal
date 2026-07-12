@@ -16,6 +16,7 @@ router.use("/fees",           require("./fee"));
 router.use("/fee-types",     require("./feeType"));
 router.use("/fee-structure", require("./feeStructure"));
 router.use("/student-fees",  require("./studentFee"));
+router.use("/homework",      require("./homework"));
 router.use("/announcements",  require("./announcement"));
 router.use("/dashboard",      require("./dashboard"));
 router.use("/analytics",      require("./analytics"));

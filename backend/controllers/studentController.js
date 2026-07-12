@@ -3,25 +3,10 @@ const AcademicYear = require("../models/AcademicYear");
 const FeeStructure = require("../models/FeeStructure");
 const Teacher = require("../models/Teacher");
 const ExcelJS = require("exceljs");
-const cloudinary = require("cloudinary").v2;
 const { assignFeeStructureToStudents } = require("./feeStructureController");
 const { canTeachersCreateStudents } = require("./settingController");
 const { escapeRegex, normalizeSearch, parsePagination } = require("../utils/query");
-
-const configureCloudinary = () => {
-  const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
-  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
-    return false;
-  }
-
-  cloudinary.config({
-    cloud_name: CLOUDINARY_CLOUD_NAME,
-    api_key: CLOUDINARY_API_KEY,
-    api_secret: CLOUDINARY_API_SECRET
-  });
-
-  return true;
-};
+const { cloudinary, configureCloudinary } = require("../utils/cloudinary");
 
 const uploadBufferToCloudinary = (buffer, options) => new Promise((resolve, reject) => {
   const stream = cloudinary.uploader.upload_stream(options, (error, result) => {

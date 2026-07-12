@@ -249,11 +249,12 @@ export default function StudentFees() {
     const term = upiState.term;
     if (!term) return;
     const remainingAmount = getTermRemainingAmount(term);
+    const baseAmount = Number(term.amount || 0);
     const nextAmount = mode === "full"
       ? remainingAmount
       : mode === "half"
-        ? Math.max(1, Math.round(remainingAmount / 2))
-        : Math.max(1, Math.round(remainingAmount / 3));
+        ? Math.max(1, Math.round(baseAmount / 2))
+        : Math.max(1, Math.round(baseAmount / 3));
     setUpiState(prev => ({
       ...prev,
       selectedAmount: nextAmount,
@@ -445,9 +446,20 @@ export default function StudentFees() {
   const percentage = fee.totalAnnualFee > 0 ? Math.min(100, Math.round((fee.totalPaid / fee.totalAnnualFee) * 100)) : 0;
   const classLabel = [user?.class?.name, user?.class?.section].filter(Boolean).join("");
   const selectedTermRemainingAmount = getTermRemainingAmount(upiState.term);
-  const fullAmountLabel = `Pay Full Amount - ₹${selectedTermRemainingAmount.toLocaleString("en-IN")}`;
-  const halfAmountLabel = `Pay Half Amount - ₹${Math.max(1, Math.round(selectedTermRemainingAmount / 2)).toLocaleString("en-IN")}`;
-  const thirdAmountLabel = `Pay 1/3 Amount - ₹${Math.max(1, Math.round(selectedTermRemainingAmount / 3)).toLocaleString("en-IN")}`;
+  const selectedTermBaseAmount = Number(upiState.term?.amount || 0);
+  const selectedTermInstallmentMode = String(upiState.term?.installmentMode || "").toUpperCase();
+  const allowedPresetModes = selectedTermInstallmentMode === "HALF"
+    ? ["full", "half"]
+    : selectedTermInstallmentMode === "THIRD"
+      ? ["full", "third"]
+      : selectedTermInstallmentMode === "FULL"
+        ? ["full"]
+        : ["full", "half", "third"];
+  const fullAmountLabel = `Pay Full (remaining balance) - ₹${selectedTermRemainingAmount.toLocaleString("en-IN")}`;
+  const halfInstallmentAmount = Math.max(1, Math.round(selectedTermBaseAmount / 2));
+  const thirdInstallmentAmount = Math.max(1, Math.round(selectedTermBaseAmount / 3));
+  const halfAmountLabel = `Pay Half (₹${halfInstallmentAmount.toLocaleString("en-IN")} of original term)`;
+  const thirdAmountLabel = `Pay 1/3 (₹${thirdInstallmentAmount.toLocaleString("en-IN")} of original term)`;
 
   return (
     <div style={s.container} className="student-fees-page">
@@ -586,18 +598,24 @@ export default function StudentFees() {
                   Remaining due: ₹{getTermRemainingAmount(upiState.term).toLocaleString("en-IN")}
                 </div>
                 <div style={s.amountButtons}>
-                  <button type="button" style={s.amountBtn} onClick={() => choosePresetAmount("full")}>
-                    {fullAmountLabel}
-                  </button>
-                  <button type="button" style={s.amountBtn} onClick={() => choosePresetAmount("half")}>
-                    {halfAmountLabel}
-                  </button>
-                  <button type="button" style={s.amountBtn} onClick={() => choosePresetAmount("third")}>
-                    {thirdAmountLabel}
-                  </button>
+                  {allowedPresetModes.includes("full") && (
+                    <button type="button" style={s.amountBtn} onClick={() => choosePresetAmount("full")}>
+                      {fullAmountLabel}
+                    </button>
+                  )}
+                  {allowedPresetModes.includes("half") && (
+                    <button type="button" style={s.amountBtn} onClick={() => choosePresetAmount("half")}>
+                      {halfAmountLabel}
+                    </button>
+                  )}
+                  {allowedPresetModes.includes("third") && (
+                    <button type="button" style={s.amountBtn} onClick={() => choosePresetAmount("third")}>
+                      {thirdAmountLabel}
+                    </button>
+                  )}
                 </div>
                 <div style={s.screenshotHint}>
-                  Full amount uses the remaining balance. Half and one-third are rounded to the nearest rupee.
+                  Full uses the remaining balance. Half and one-third are based on the original term amount and rounded to the nearest rupee.
                 </div>
               </div>
             </>

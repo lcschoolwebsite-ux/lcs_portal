@@ -1,0 +1,190 @@
+const Homework = require("../models/Homework");
+const Student = require("../models/Student");
+const Subject = require("../models/Subject");
+const { teacherCanAccessClass } = require("../utils/teacherClassAccess");
+const { uploadFile, getFileStream, deleteFile } = require("../utils/fileStorage");
+const { notifyClassStudents } = require("../utils/pushNotification");
+
+const toIdString = value => (value == null ? "" : value.toString());
+
+const isAdmin = req => String(req.user?.role || "").toLowerCase() === "admin";
+const isTeacher = req => String(req.user?.role || "").toLowerCase() === "teacher";
+const isStudent = req => String(req.user?.role || "").toLowerCase() === "student";
+
+const getStudentClassId = async studentId => {
+  const student = await Student.findById(studentId).select("class").lean();
+  return toIdString(student?.class);
+};
+
+const canStudentAccessClass = async (req, classId) => {
+  if (!isStudent(req)) return false;
+  return toIdString(await getStudentClassId(req.user.id)) === toIdString(classId);
+};
+
+const canAccessHomeworkClass = async (req, classId) => {
+  if (isAdmin(req)) return true;
+  if (isTeacher(req)) return teacherCanAccessClass(req.user.id, classId);
+  if (isStudent(req)) return canStudentAccessClass(req, classId);
+  return false;
+};
+
+const populateHomework = query =>
+  query
+    .populate("subjectId", "name")
+    .populate("uploadedBy", "name")
+    .populate("classId", "name section")
+    .populate("academicYear", "year");
+
+const buildDownloadName = homework => {
+  const rawName = String(homework?.fileName || homework?.title || "homework.pdf")
+    .trim()
+    .replace(/"/g, "'");
+  return rawName.toLowerCase().endsWith(".pdf") ? rawName : `${rawName}.pdf`;
+};
+
+exports.create = async (req, res) => {
+  try {
+    if (!isTeacher(req)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const { classId, subjectId, title, description = "" } = req.body;
+    const file = req.file;
+
+    if (!classId || !subjectId || !title?.trim()) {
+      return res.status(400).json({ message: "Class, subject, and title are required" });
+    }
+
+    if (!file?.buffer) {
+      return res.status(400).json({ message: "Homework PDF is required" });
+    }
+
+    if (!(await teacherCanAccessClass(req.user.id, classId))) {
+      return res.status(403).json({ message: "Class not assigned to teacher" });
+    }
+
+    const subject = await Subject.findOne({
+      _id: subjectId,
+      class: classId
+    }).select("_id class academicYear name").lean();
+
+    if (!subject) {
+      return res.status(400).json({ message: "Subject does not belong to the selected class" });
+    }
+
+    let storage = null;
+    let homework = null;
+
+    try {
+      storage = await uploadFile(file.buffer, file.originalname, file.mimetype);
+      homework = await Homework.create({
+        classId,
+        subjectId,
+        title: title.trim(),
+        description: String(description || "").trim(),
+        storageId: storage.storageId,
+        fileName: file.originalname || "",
+        fileUrl: storage.url || "",
+        uploadedBy: req.user.id,
+        academicYear: subject.academicYear
+      });
+    } catch (error) {
+      if (storage?.storageId) {
+        await deleteFile(storage.storageId).catch(() => {});
+      }
+      throw error;
+    }
+
+    await notifyClassStudents(
+      classId,
+      "New homework posted",
+      `${title.trim()} has been posted for your class.`,
+      { url: "/student/homework", homeworkId: homework._id.toString() }
+    ).catch(error => console.warn("Homework notification failed:", error.message));
+
+    const populated = await populateHomework(Homework.findById(homework._id));
+    res.status(201).json({
+      message: "Homework uploaded",
+      homework: populated
+    });
+  } catch (error) {
+    res.status(error.status || 400).json({ message: error.message });
+  }
+};
+
+exports.getByClass = async (req, res) => {
+  try {
+    const { classId } = req.params;
+    const { academicYear } = req.query;
+
+    if (!(await canAccessHomeworkClass(req, classId))) {
+      return res.status(403).json({ message: "Access denied for this class" });
+    }
+
+    const filter = { classId };
+    if (academicYear) filter.academicYear = academicYear;
+
+    const homework = await populateHomework(
+      Homework.find(filter).sort({ createdAt: -1 }).lean()
+    );
+
+    res.json(homework);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.download = async (req, res) => {
+  try {
+    const homework = await Homework.findById(req.params.id)
+      .populate("classId", "_id")
+      .lean();
+
+    if (!homework) {
+      return res.status(404).json({ message: "Homework not found" });
+    }
+
+    if (!(await canAccessHomeworkClass(req, homework.classId?._id || homework.classId))) {
+      return res.status(403).json({ message: "Access denied for this homework" });
+    }
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${buildDownloadName(homework)}"`);
+
+    const fileStream = getFileStream(homework.storageId);
+    fileStream.on("error", error => {
+      if (!res.headersSent) {
+        res.status(500).json({ message: error.message });
+        return;
+      }
+      res.destroy(error);
+    });
+
+    fileStream.pipe(res);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.remove = async (req, res) => {
+  try {
+    const homework = await Homework.findById(req.params.id).select("_id classId storageId").lean();
+
+    if (!homework) {
+      return res.status(404).json({ message: "Homework not found" });
+    }
+
+    if (!isAdmin(req)) {
+      if (!isTeacher(req) || !(await teacherCanAccessClass(req.user.id, homework.classId))) {
+        return res.status(403).json({ message: "Access denied for this homework" });
+      }
+    }
+
+    await deleteFile(homework.storageId);
+    await Homework.findByIdAndDelete(req.params.id);
+
+    res.json({ message: "Homework deleted" });
+  } catch (error) {
+    res.status(error.status || 500).json({ message: error.message });
+  }
+};

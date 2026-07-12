@@ -4,35 +4,21 @@ const Class = require("../models/Class");
 const AcademicYear = require("../models/AcademicYear");
 const QRCode = require("qrcode");
 const Razorpay = require("razorpay");
-const cloudinary = require("cloudinary").v2;
 const crypto = require("crypto");
 const { notifyStudentById } = require("../utils/pushNotification");
 const { getIO } = require("../utils/socket");
 const { canTeachersManageFees } = require("./settingController");
+const { cloudinary, configureCloudinary } = require("../utils/cloudinary");
 
 const SCHOOL_UPI_ID = process.env.SCHOOL_UPI_ID || "lemhs@kbl";
 const SCHOOL_NAME = process.env.SCHOOL_NAME || "Loreto English Medium High School General Fees Account";
 const FEE_SCREENSHOT_FOLDER = "fee-payment-screenshots";
 const INSTALLMENT_MODES = Object.freeze({
+  HALF: "HALF",
   THIRD: "THIRD",
   CUSTOM: "CUSTOM",
   FULL: "FULL"
 });
-
-const configureCloudinary = () => {
-  const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
-  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
-    return false;
-  }
-
-  cloudinary.config({
-    cloud_name: CLOUDINARY_CLOUD_NAME,
-    api_key: CLOUDINARY_API_KEY,
-    api_secret: CLOUDINARY_API_SECRET
-  });
-
-  return true;
-};
 
 const uploadBufferToCloudinary = (buffer, options) => new Promise((resolve, reject) => {
   const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
@@ -144,8 +130,11 @@ const amountsMatch = (first, second) => Math.abs(normalizeAmount(first) - normal
 
 const getThirdInstallmentAmount = term => normalizeAmount(Number(term?.amount || 0) / 3);
 
+const getHalfInstallmentAmount = term => normalizeAmount(Number(term?.amount || 0) / 2);
+
 const inferInstallmentModeForAmount = ({ amount, remainingAmount, term }) => {
   if (amountsMatch(amount, remainingAmount)) return INSTALLMENT_MODES.FULL;
+  if (amountsMatch(amount, getHalfInstallmentAmount(term))) return INSTALLMENT_MODES.HALF;
   if (amountsMatch(amount, getThirdInstallmentAmount(term))) return INSTALLMENT_MODES.THIRD;
   return INSTALLMENT_MODES.CUSTOM;
 };
@@ -160,7 +149,18 @@ const resolveInstallmentMode = ({ term, amount, remainingAmount, requestedMode, 
 
   const resolved = requested || inferInstallmentModeForAmount({ amount, remainingAmount, term });
   const lockedMode = normalizeInstallmentMode(existingMode);
+  const halfAmount = getHalfInstallmentAmount(term);
   const thirdAmount = getThirdInstallmentAmount(term);
+
+  if (lockedMode === INSTALLMENT_MODES.HALF) {
+    const isHalf = amountsMatch(amount, halfAmount);
+    const isFull = amountsMatch(amount, remainingAmount);
+    if (!isHalf && !isFull) {
+      const error = new Error("This term is on a half installment plan - please record a half payment or the full remaining balance instead");
+      error.status = 400;
+      throw error;
+    }
+  }
 
   if (lockedMode === INSTALLMENT_MODES.THIRD) {
     const isThird = amountsMatch(amount, thirdAmount);
@@ -179,6 +179,12 @@ const resolveInstallmentMode = ({ term, amount, remainingAmount, requestedMode, 
   }
 
   if (!lockedMode) {
+    if (resolved === INSTALLMENT_MODES.HALF && !amountsMatch(amount, halfAmount)) {
+      const error = new Error("Half payment must match the term's fixed half amount");
+      error.status = 400;
+      throw error;
+    }
+
     if (resolved === INSTALLMENT_MODES.THIRD && !amountsMatch(amount, thirdAmount)) {
       const error = new Error("1/3 payment must match the term's fixed third amount");
       error.status = 400;
