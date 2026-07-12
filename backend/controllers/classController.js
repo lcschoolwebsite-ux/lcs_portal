@@ -45,8 +45,35 @@ const validateClassTeacherSubject = async (classId, subjectId) => {
 
 exports.getAll = async (req, res) => {
   const { academicYear } = req.query;
+  const includeStats = String(req.query.includeStats || "").toLowerCase() === "true";
   const q = academicYear ? { academicYear } : {};
-  res.json(await populateClass(Class.find(q)));
+
+  const classes = await populateClass(Class.find(q).lean());
+
+  if (!includeStats || classes.length === 0) {
+    return res.json(classes);
+  }
+
+  const classIds = classes.map(cls => cls._id);
+  const [studentCounts, examCounts] = await Promise.all([
+    Student.aggregate([
+      { $match: { class: { $in: classIds } } },
+      { $group: { _id: "$class", count: { $sum: 1 } } }
+    ]),
+    Exam.aggregate([
+      { $match: { class: { $in: classIds } } },
+      { $group: { _id: "$class", count: { $sum: 1 } } }
+    ])
+  ]);
+
+  const studentCountMap = new Map(studentCounts.map(row => [String(row._id), row.count]));
+  const examCountMap = new Map(examCounts.map(row => [String(row._id), row.count]));
+
+  return res.json(classes.map(cls => ({
+    ...cls,
+    studentCount: studentCountMap.get(String(cls._id)) || 0,
+    examCount: examCountMap.get(String(cls._id)) || 0
+  })));
 };
 
 exports.getManagement = async (req, res) => {

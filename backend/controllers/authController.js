@@ -1,6 +1,20 @@
 const generateToken = require("../utils/generateToken");
+const { canTeachersCreateStudents } = require("./settingController");
 
 const compactRefs = value => (Array.isArray(value) ? value.filter(Boolean) : value);
+
+const computeTeacherAccessFlags = async (teacherDoc) => {
+  const teacherId = String(teacherDoc?._id || "");
+  const assignedClasses = Array.isArray(teacherDoc?.assignedClasses) ? teacherDoc.assignedClasses : [];
+  const canTakeAttendance = assignedClasses.some(cls =>
+    String(cls?.classTeacher?._id || cls?.classTeacher || "") === teacherId
+  );
+
+  return {
+    canTakeAttendance,
+    canCreateStudents: await canTeachersCreateStudents()
+  };
+};
 
 exports.login = async (req, res) => {
   const { role, username, password } = req.body;
@@ -45,7 +59,7 @@ exports.login = async (req, res) => {
       const teacher = await Teacher.findOne({ 
         username, 
         isActive: true 
-      }).populate("assignedClasses", "name section")
+      }).populate("assignedClasses", "name section classTeacher")
         .populate("assignedSubjects", "name");
 
       if (!teacher) {
@@ -66,6 +80,7 @@ exports.login = async (req, res) => {
         role: "teacher", 
         name: teacher.name 
       });
+      const accessFlags = await computeTeacherAccessFlags(teacher);
 
       return res.json({
         token,
@@ -74,7 +89,8 @@ exports.login = async (req, res) => {
           role: "teacher", 
           name: teacher.name,
           assignedClasses: compactRefs(teacher.assignedClasses),
-          assignedSubjects: compactRefs(teacher.assignedSubjects)
+          assignedSubjects: compactRefs(teacher.assignedSubjects),
+          ...accessFlags
         }
       });
     }
@@ -163,12 +179,13 @@ exports.getMe = async (req, res) => {
       const Teacher = require("../models/Teacher");
       const teacher = await Teacher.findById(id)
         .select("-password")
-        .populate("assignedClasses")
+        .populate("assignedClasses", "name section classTeacher")
         .populate("assignedSubjects");
       if (!teacher) return res.status(404).json({ message: "Teacher not found" });
       const teacherData = teacher.toObject();
       teacherData.assignedClasses = compactRefs(teacherData.assignedClasses);
       teacherData.assignedSubjects = compactRefs(teacherData.assignedSubjects);
+      Object.assign(teacherData, await computeTeacherAccessFlags(teacherData));
       return res.json({ ...teacherData, role: "teacher" });
     }
 

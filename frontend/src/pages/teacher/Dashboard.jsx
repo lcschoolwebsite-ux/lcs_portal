@@ -28,7 +28,7 @@ export default function Dashboard() {
       setLoading(true);
       try {
         const [classesRes, subjectsRes, examsRes, announcementsRes] = await Promise.all([
-          api.get("/classes"),
+          api.get("/classes", { params: { includeStats: true } }),
           api.get("/subjects"),
           api.get("/exams"),
           api.get("/announcements")
@@ -53,7 +53,6 @@ export default function Dashboard() {
         });
 
         const classList = (classesRes.data || []).filter(cls => directClassIds.has(String(cls._id)));
-        const studentResponses = await Promise.all(classList.map(cls => api.get(`/students?classId=${cls._id}`)));
         const classTeacherClasses = classList.filter(cls => isClassTeacher(user, cls));
         const firstAttendanceClassId = classTeacherClasses[0]?._id || "";
         const attendanceRes = firstAttendanceClassId
@@ -61,9 +60,6 @@ export default function Dashboard() {
           : { data: { students: [], alreadyMarked: false } };
 
         const exams = examsRes.data || [];
-        const studentResponseByClassId = new Map(
-          classList.map((cls, index) => [String(cls._id), studentResponses[index]?.data || []])
-        );
         const subjectsByClassId = teacherSubjects.reduce((map, subject) => {
           const classId = String(subject.class?._id || subject.class || "");
           if (!classId) return map;
@@ -74,15 +70,16 @@ export default function Dashboard() {
         }, new Map());
 
         const classCards = classList.map((cls) => {
-          const students = studentResponseByClassId.get(String(cls._id)) || [];
-          const classExams = exams.filter(exam => exam.class?._id === cls._id);
+          const classExams = exams.filter(exam =>
+            String(exam.class?._id || exam.class || "") === String(cls._id)
+          );
           const assignedSubjects = subjectsByClassId.get(String(cls._id)) || [];
           const classTeacher = isClassTeacher(user, cls);
           return {
             id: cls._id,
             name: formatClassLabel(cls),
-            students: students.length,
-            examCount: classExams.length,
+            students: cls.studentCount || 0,
+            examCount: cls.examCount ?? classExams.length,
             firstExamId: classExams[0]?._id || "",
             canTakeAttendance: classTeacher,
             classTeacher,
@@ -98,7 +95,7 @@ export default function Dashboard() {
         }));
 
         setStats({
-          myStudents: studentResponses.reduce((sum, res) => sum + (res.data?.length || 0), 0),
+          myStudents: classList.reduce((sum, cls) => sum + (cls.studentCount || 0), 0),
           attendanceMarked: Boolean(attendanceRes.data.alreadyMarked),
           pendingMarks: exams.length,
           announcements: announcementsRes.data?.length || 0,

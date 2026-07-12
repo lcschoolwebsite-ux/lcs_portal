@@ -1,7 +1,6 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
-import api from "../api/axios";
 import useActiveAcademicYear from "../hooks/useActiveAcademicYear";
 import AppFooter from "../components/AppFooter";
 import MobileBottomBar from "../components/MobileBottomBar";
@@ -57,30 +56,10 @@ export default function TeacherLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [allowTeacherStudentCreation, setAllowTeacherStudentCreation] = useState(true);
-  const [canTakeAttendance, setCanTakeAttendance] = useState(false);
+  const allowTeacherStudentCreation = Boolean(user?.canCreateStudents ?? true);
+  const canTakeAttendance = Boolean(user?.canTakeAttendance ?? false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { academicYearLabel } = useActiveAcademicYear();
-
-  useEffect(() => {
-    const fetchStudentRegistrationSettings = async () => {
-      try {
-        const [settingsRes, classesRes] = await Promise.all([
-          api.get("/settings/student-registration"),
-          api.get("/classes")
-        ]);
-        setAllowTeacherStudentCreation(Boolean(settingsRes.data.allowTeacherStudentCreation));
-        const hasClassTeacherAccess = (classesRes.data || []).some(
-          cls => String(cls.classTeacher?._id || cls.classTeacher) === String(user?.id || "")
-        );
-        setCanTakeAttendance(hasClassTeacherAccess);
-      } catch (e) {
-        console.error("Unable to load teacher permissions", e);
-      }
-    };
-
-    fetchStudentRegistrationSettings();
-  }, [user]);
 
   const handleLogout = () => {
     logout();
