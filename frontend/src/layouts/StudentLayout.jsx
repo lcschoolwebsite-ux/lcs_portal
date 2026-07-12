@@ -60,6 +60,7 @@ export default function StudentLayout() {
   const bottomBarItems = [
     { label: "Dashboard", shortLabel: "Home", path: "/student", icon: "fa-solid fa-house" },
     { label: "Notices", shortLabel: "Notices", path: "/student/announcements", icon: "fa-solid fa-bullhorn" },
+    { label: "Homework", shortLabel: "HW", path: "/student/homework", icon: "fa-solid fa-book-open" },
     { label: "Attendance", shortLabel: "Attend", path: "/student/attendance", icon: "fa-solid fa-calendar-check" },
     { label: "Marks", shortLabel: "Marks", path: "/student/marks", icon: "fa-solid fa-ranking-star" },
     { label: "Fees", shortLabel: "Fees", path: "/student/fees", icon: "fa-solid fa-wallet" },
