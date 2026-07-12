@@ -813,6 +813,34 @@ input, select, textarea {
     overflow: visible !important;
   }
 
+  .student-marks-page {
+    max-width: 100% !important;
+  }
+
+  .student-marks-selector-shell,
+  .student-marks-page .student-report-summary,
+  .student-marks-page .student-print-actions,
+  .student-marks-page .student-marks-exam-type-select {
+    width: 100% !important;
+  }
+
+  .student-marks-selector-shell {
+    padding: 16px !important;
+  }
+
+  .student-marks-selector-shell .student-marks-exam-type-select {
+    min-height: 44px !important;
+    font-size: 0.92rem !important;
+  }
+
+  .student-marks-page .student-print-actions {
+    gap: 10px !important;
+  }
+
+  .student-marks-page .student-print-actions button {
+    flex: 1 1 0 !important;
+  }
+
   .student-report-card h1 {
     font-size: 1.45rem !important;
     line-height: 1.15 !important;
@@ -881,6 +909,19 @@ input, select, textarea {
     width: 100%;
   }
 
+  .student-marks-page .student-marks-panel {
+    padding: 16px !important;
+  }
+
+  .student-marks-page .student-marks-header {
+    align-items: stretch !important;
+    flex-direction: column !important;
+  }
+
+  .student-marks-page .student-marks-badge {
+    width: fit-content;
+  }
+
   .student-attendance-week-controls {
     display: grid !important;
     grid-template-columns: 36px minmax(0, 1fr) 36px;
@@ -902,6 +943,20 @@ input, select, textarea {
 }
 
 @media (max-width: 420px) {
+  .student-marks-page .student-report-summary {
+    padding: 12px !important;
+    gap: 10px !important;
+  }
+
+  .student-marks-page .student-report-summary > div {
+    min-width: 0 !important;
+    flex: 1 1 0 !important;
+  }
+
+  .student-marks-page .student-report-summary .summaryVal {
+    font-size: 1.25rem !important;
+  }
+
   .mobile-bottom-bar {
     gap: 6px;
     padding: 5px 6px calc(5px + env(safe-area-inset-bottom, 0px));

@@ -67,6 +67,7 @@ export default function Marks() {
 
   const studentId = getStudentId(user);
   const activeType = examType ? decodeURIComponent(examType) : "";
+  const selectedTypeValue = activeType || "";
 
   useEffect(() => {
     const loadReport = async () => {
@@ -299,46 +300,50 @@ export default function Marks() {
     navigate("/student/marks");
   };
 
+  const handleExamTypeChange = (nextType) => {
+    if (!nextType) {
+      navigate("/student/marks");
+      return;
+    }
+    navigate(`/student/marks/${encodeURIComponent(nextType)}`);
+  };
+
   if (loading) return <div style={s.loading}>Loading report card...</div>;
 
   return (
     <div style={s.page} className="student-marks-page">
       <SectionTitle title="Marks & Reports" subtitle="Review marks entered by your teachers." />
 
-      <div style={s.categoryShell} className="student-category-shell">
-        <div style={s.categoryHeader}>
+      <div style={s.selectorShell} className="student-marks-selector-shell">
+        <div style={s.selectorHeader}>
           <div>
-            <h2 style={s.categoryTitle}>Exam Categories</h2>
-            <p style={s.categorySub}>Select an exam type to open its marks card.</p>
+            <h2 style={s.selectorTitle}>Select Exam Type</h2>
+            <p style={s.selectorSub}>Choose an exam type to view the report card.</p>
           </div>
           <span style={s.categoryCount}>{typeNames.length} categories</span>
         </div>
-        <div style={s.categoryGrid}>
-          {typeNames.length ? typeNames.map(type => {
+
+        <select
+          value={selectedTypeValue}
+          onChange={e => handleExamTypeChange(e.target.value)}
+          style={s.examTypeSelect}
+          className="student-marks-exam-type-select"
+          aria-label="Select exam type"
+        >
+          <option value="">Choose an exam type</option>
+          {typeNames.map(type => {
             const count = rowsByType[type]?.length || 0;
             const typeInfo = typeDetails[type];
             const publishedAt = typeInfo?.isPublished
               ? formatDate(typeInfo?.publishedAt || typeInfo?.updatedAt || typeInfo?.createdAt)
               : "Not launched";
             return (
-              <button
-                key={type}
-                type="button"
-                style={{...s.categoryCard, ...(activeType === type ? s.categoryCardActive : {})}}
-                onClick={() => openMarksCard(type)}
-              >
-                <span style={s.categoryIcon}><i className="fa-solid fa-file-lines"></i></span>
-                <span style={s.categoryName}>{type}</span>
-                <span style={s.categoryMetaBlock}>
-                  <small style={s.categoryMeta}>{count ? `${count} mark entries` : "Marks card"}</small>
-                  <small style={s.categoryMeta}>Marks launched: {publishedAt}</small>
-                </span>
-              </button>
+              <option key={type} value={type}>
+                {type} {count ? `(${count} marks)` : ""} - {publishedAt}
+              </option>
             );
-          }) : (
-            <div style={s.emptyMini}>No exam categories have been created yet.</div>
-          )}
-        </div>
+          })}
+        </select>
       </div>
 
       {activeType && (
@@ -357,8 +362,8 @@ export default function Marks() {
       {!activeType ? (
         <div style={s.promptCard}>
           <i className="fa-solid fa-arrow-up" style={s.promptIcon}></i>
-          <div style={s.promptTitle}>Choose an exam category</div>
-          <div style={s.promptText}>Your marks card will open here after you select a category.</div>
+          <div style={s.promptTitle}>Choose an exam type</div>
+          <div style={s.promptText}>Your marks card will open here after you select an exam type.</div>
         </div>
       ) : !isCategoryLaunched ? (
         <div style={s.promptCard}>
@@ -367,13 +372,13 @@ export default function Marks() {
           <div style={s.promptText}>This exam category is not available to students yet.</div>
         </div>
       ) : (
-        <div style={s.marksPanel}>
-          <div style={s.marksHeader}>
+        <div style={s.marksPanel} className="student-marks-panel">
+          <div style={s.marksHeader} className="student-marks-header">
             <div>
               <h2 style={s.marksTitle}>{activeType || "Marks"}</h2>
               <p style={s.marksSub}>Marks launched: {activeTypeInfo?.isPublished ? formatDate(activeTypeInfo?.publishedAt || activeTypeInfo?.updatedAt || activeTypeInfo?.createdAt) : "Not launched"}</p>
             </div>
-            <div style={s.marksBadge}>{activeRows.length} subject rows</div>
+            <div style={s.marksBadge} className="student-marks-badge">{activeRows.length} subject rows</div>
           </div>
 
           {activeRows.length ? (
@@ -448,18 +453,12 @@ const s = {
   error: { background: "var(--danger-bg)", color: "var(--danger-text)", padding: "14px 18px", borderRadius: "12px", fontWeight: "800", marginBottom: "16px" },
   empty: { padding: "40px", textAlign: "center", color: "var(--text-muted)", background: "var(--light-bg)", borderRadius: "12px", border: "1px dashed var(--border)", marginBottom: "36px" },
   emptyMini: { padding: "14px", color: "var(--text-muted)", fontWeight: "800" },
-  categoryShell: { background: "var(--white)", border: "1px solid var(--border)", borderRadius: "14px", padding: "18px", boxShadow: "var(--shadow-sm)", marginBottom: "18px" },
-  categoryHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", marginBottom: "14px" },
-  categoryTitle: { margin: 0, color: "var(--navy)", fontFamily: "var(--font-heading)", fontSize: "1.08rem", fontWeight: "900" },
-  categorySub: { margin: "4px 0 0", color: "var(--text-muted)", fontSize: "0.86rem", fontWeight: "700" },
+  selectorShell: { background: "var(--white)", border: "1px solid var(--border)", borderRadius: "14px", padding: "18px", boxShadow: "var(--shadow-sm)", marginBottom: "18px" },
+  selectorHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", marginBottom: "14px" },
+  selectorTitle: { margin: 0, color: "var(--navy)", fontFamily: "var(--font-heading)", fontSize: "1.08rem", fontWeight: "900" },
+  selectorSub: { margin: "4px 0 0", color: "var(--text-muted)", fontSize: "0.86rem", fontWeight: "700" },
   categoryCount: { borderRadius: "999px", background: "var(--gold-pale)", color: "var(--navy-dark)", padding: "6px 10px", fontSize: "0.75rem", fontWeight: "900", whiteSpace: "nowrap" },
-  categoryGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: "12px" },
-  categoryCard: { border: "1px solid var(--border)", background: "var(--light-bg)", color: "var(--text)", borderRadius: "10px", padding: "16px", fontWeight: "900", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "9px", minHeight: "118px", textAlign: "left", transition: "var(--transition)" },
-  categoryCardActive: { background: "var(--navy)", color: "var(--white)", borderColor: "var(--navy)", boxShadow: "var(--shadow-sm)" },
-  categoryIcon: { width: "34px", height: "34px", borderRadius: "9px", background: "rgba(200,150,12,0.18)", color: "inherit", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" },
-  categoryName: { fontSize: "1rem", lineHeight: 1.2 },
-  categoryMetaBlock: { display: "flex", flexDirection: "column", gap: "2px", width: "100%" },
-  categoryMeta: { color: "inherit", opacity: 0.72, fontSize: "0.75rem", fontWeight: "800" },
+  examTypeSelect: { width: "100%", minHeight: "46px", borderRadius: "12px", border: "1px solid var(--border)", background: "var(--light-bg)", color: "var(--navy-dark)", fontWeight: "800", padding: "10px 14px", fontSize: "0.95rem" },
   promptCard: { background: "var(--white)", border: "1px dashed var(--border)", borderRadius: "14px", padding: "38px 22px", textAlign: "center", color: "var(--text-muted)", boxShadow: "var(--shadow-sm)" },
   promptIcon: { width: "42px", height: "42px", borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "var(--gold-pale)", color: "var(--navy)", marginBottom: "12px" },
   promptTitle: { color: "var(--navy)", fontWeight: "900", fontSize: "1.05rem", marginBottom: "4px" },
