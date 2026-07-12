@@ -1,4 +1,5 @@
 const Student = require("../models/Student");
+const Class = require("../models/Class");
 const AcademicYear = require("../models/AcademicYear");
 const FeeStructure = require("../models/FeeStructure");
 const Teacher = require("../models/Teacher");
@@ -16,8 +17,50 @@ const uploadBufferToCloudinary = (buffer, options) => new Promise((resolve, reje
   stream.end(buffer);
 });
 
+const sanitizeFolderSegment = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "student";
+
+const buildStudentPhotoFolder = async (student) => {
+  const classDoc = await Class.findById(student.class).select("name section").lean();
+  const classLabel = [classDoc?.name, classDoc?.section].filter(Boolean).join("-");
+  return `lcsms/student-photos/${sanitizeFolderSegment(classLabel || student.class?.toString?.() || "student")}`;
+};
+
+const ensureCloudinaryFolder = async (folder) => {
+  try {
+    await cloudinary.api.create_folder(folder);
+  } catch (error) {
+    const message = String(error?.message || "");
+    if (error?.http_code === 409 || /already exists/i.test(message)) return;
+    throw error;
+  }
+};
+
+const extractCloudinaryPublicIdFromUrl = (photoUrl) => {
+  if (!photoUrl) return "";
+
+  try {
+    const { pathname } = new URL(photoUrl);
+    const uploadIndex = pathname.indexOf("/upload/");
+    if (uploadIndex === -1) return "";
+
+    let publicPath = pathname.slice(uploadIndex + "/upload/".length);
+    publicPath = publicPath.replace(/^v\d+\//, "");
+    return publicPath.replace(/\.[^.\/]+$/, "");
+  } catch (_) {
+    return "";
+  }
+};
+
+const getStudentPhotoPublicId = (student) =>
+  student?.photoPublicId || extractCloudinaryPublicIdFromUrl(student?.photoUrl);
+
 const assertCanManageStudent = async (req, studentId) => {
-  const student = await Student.findById(studentId).select("class photoPublicId");
+  const student = await Student.findById(studentId).select("class photoPublicId photoUrl");
   if (!student) {
     const error = new Error("Student not found");
     error.status = 404;
@@ -418,8 +461,10 @@ exports.uploadStudentPhoto = async (req, res) => {
     }
 
     const student = await assertCanManageStudent(req, req.params.id);
+    const folder = await buildStudentPhotoFolder(student);
+    await ensureCloudinaryFolder(folder);
     const result = await uploadBufferToCloudinary(req.file.buffer, {
-      folder: "lcsms/student-photos",
+      folder,
       public_id: `student-${req.params.id}`,
       overwrite: true,
       resource_type: "image",
@@ -450,9 +495,16 @@ exports.uploadStudentPhoto = async (req, res) => {
 exports.removeStudentPhoto = async (req, res) => {
   try {
     const student = await assertCanManageStudent(req, req.params.id);
+    const publicId = getStudentPhotoPublicId(student);
 
-    if (student.photoPublicId && configureCloudinary()) {
-      cloudinary.uploader.destroy(student.photoPublicId).catch(() => {});
+    if (publicId) {
+      if (!configureCloudinary()) {
+        return res.status(503).json({
+          message: "Photo removal is not configured yet. Add Cloudinary credentials on the server."
+        });
+      }
+
+      await cloudinary.uploader.destroy(publicId, { resource_type: "image" }).catch(() => {});
     }
 
     const updatedStudent = await populateStudentForResponse(

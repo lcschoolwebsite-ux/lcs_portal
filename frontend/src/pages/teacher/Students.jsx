@@ -262,7 +262,7 @@ export default function Students() {
                 </button>
                 {selectedStudent?.photoUrl && (
                   <button type="button" style={st.removePhotoBtn} onClick={handleRemovePhoto} disabled={photoUploading}>
-                    <i className="fa-solid fa-xmark"></i> Remove Photo
+                    <i className="fa-solid fa-xmark"></i> Delete Photo
                   </button>
                 )}
               </div>

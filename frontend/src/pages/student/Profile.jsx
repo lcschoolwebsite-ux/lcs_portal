@@ -160,7 +160,7 @@ export default function Profile() {
                 disabled={!user?.photoUrl || removing}
               >
                 <i className="fa-solid fa-trash-can"></i>
-                {removing ? "Removing..." : "Remove Photo"}
+                {removing ? "Removing..." : "Delete Photo"}
               </button>
             </div>
             <div style={s.helper}>
