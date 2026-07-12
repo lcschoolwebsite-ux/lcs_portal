@@ -711,10 +711,11 @@ input, select, textarea {
 
   .mobile-bottom-bar > button {
     flex: 0 0 auto;
-    min-width: 54px;
+    min-width: 46px;
     min-height: 40px;
-    padding: 4px 8px;
+    padding: 4px 6px;
     border-radius: 12px;
+    font-size: 0.5rem;
   }
 
   .mobile-bottom-bar > div {
@@ -735,10 +736,19 @@ input, select, textarea {
 
   .mobile-bottom-bar > div > a {
     flex: 0 0 auto;
-    min-width: 54px;
+    min-width: 46px;
     min-height: 40px;
-    padding: 4px 8px;
+    padding: 4px 6px;
     border-radius: 12px;
+    font-size: 0.5rem;
+  }
+
+  .mobile-bottom-bar > button span,
+  .mobile-bottom-bar > div > a span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .student-logout-btn {
@@ -885,6 +895,39 @@ input, select, textarea {
 
   .mobile-bottom-bar.force-visible {
     display: flex !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .mobile-bottom-bar {
+    gap: 6px;
+    padding: 5px 6px calc(5px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .mobile-bottom-bar > button {
+    min-width: 40px;
+    min-height: 38px;
+    padding: 4px 5px;
+  }
+
+  .mobile-bottom-bar > div {
+    gap: 4px;
+  }
+
+  .mobile-bottom-bar > div > a {
+    min-width: 40px;
+    min-height: 38px;
+    padding: 4px 5px;
+  }
+
+  .mobile-bottom-bar > button span,
+  .mobile-bottom-bar > div > a span {
+    display: none;
+  }
+
+  .mobile-bottom-bar > button i,
+  .mobile-bottom-bar > div > a i {
+    font-size: 0.9rem;
   }
 }
 
