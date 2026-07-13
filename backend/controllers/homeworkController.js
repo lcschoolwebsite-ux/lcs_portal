@@ -1,6 +1,7 @@
 const Homework = require("../models/Homework");
 const Student = require("../models/Student");
 const Subject = require("../models/Subject");
+const path = require("path");
 const { teacherCanAccessClass, teacherCanAccessSubject } = require("../utils/teacherClassAccess");
 const { uploadFile, getFileStream, deleteFile } = require("../utils/fileStorage");
 const { notifyClassStudents } = require("../utils/pushNotification");
@@ -39,7 +40,17 @@ const buildDownloadName = homework => {
   const rawName = String(homework?.fileName || homework?.title || "homework.pdf")
     .trim()
     .replace(/"/g, "'");
-  return rawName.toLowerCase().endsWith(".pdf") ? rawName : `${rawName}.pdf`;
+  return rawName;
+};
+
+const getDownloadContentType = homework => {
+  const ext = path.extname(String(homework?.fileName || "")).toLowerCase();
+  if (ext === ".pdf") return "application/pdf";
+  if (ext === ".png") return "image/png";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".gif") return "image/gif";
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  return "application/octet-stream";
 };
 
 const canTeacherManageHomework = async (req, classId, subjectId) => {
@@ -68,7 +79,7 @@ exports.create = async (req, res) => {
     }
 
     if (!file?.buffer) {
-      return res.status(400).json({ message: "Homework PDF is required" });
+      return res.status(400).json({ message: "Homework file is required" });
     }
 
     const subject = await Subject.findOne({
@@ -228,7 +239,7 @@ exports.download = async (req, res) => {
       return res.status(403).json({ message: "Access denied for this homework" });
     }
 
-    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Type", getDownloadContentType(homework));
     res.setHeader("Content-Disposition", `attachment; filename="${buildDownloadName(homework)}"`);
 
     const fileStream = getFileStream(homework.storageId);

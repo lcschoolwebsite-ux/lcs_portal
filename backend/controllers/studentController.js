@@ -3,6 +3,7 @@ const Class = require("../models/Class");
 const AcademicYear = require("../models/AcademicYear");
 const FeeStructure = require("../models/FeeStructure");
 const Teacher = require("../models/Teacher");
+const { randomUUID } = require("crypto");
 const ExcelJS = require("exceljs");
 const { assignFeeStructureToStudents } = require("./feeStructureController");
 const { canTeachersCreateStudents } = require("./settingController");
@@ -461,22 +462,19 @@ exports.uploadStudentPhoto = async (req, res) => {
     }
 
     const student = await assertCanManageStudent(req, req.params.id);
+    const previousPhotoPublicId = getStudentPhotoPublicId(student);
     const folder = await buildStudentPhotoFolder(student);
     await ensureCloudinaryFolder(folder);
     const result = await uploadBufferToCloudinary(req.file.buffer, {
       folder,
-      public_id: `student-${req.params.id}`,
-      overwrite: true,
+      public_id: `student-${req.params.id}-${Date.now()}-${randomUUID().slice(0, 8)}`,
+      overwrite: false,
       resource_type: "image",
       transformation: [
         { width: 600, height: 600, crop: "fill", gravity: "face" },
         { quality: "auto", fetch_format: "auto" }
       ]
     });
-
-    if (student.photoPublicId && student.photoPublicId !== result.public_id) {
-      cloudinary.uploader.destroy(student.photoPublicId).catch(() => {});
-    }
 
     const updatedStudent = await populateStudentForResponse(
       Student.findByIdAndUpdate(
@@ -485,6 +483,10 @@ exports.uploadStudentPhoto = async (req, res) => {
         { new: true }
       )
     );
+
+    if (previousPhotoPublicId && previousPhotoPublicId !== result.public_id) {
+      cloudinary.uploader.destroy(previousPhotoPublicId, { resource_type: "image" }).catch(() => {});
+    }
 
     res.json({ photoUrl: updatedStudent.photoUrl, student: updatedStudent });
   } catch (e) {

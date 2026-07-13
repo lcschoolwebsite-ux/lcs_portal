@@ -14,7 +14,7 @@ const STORAGE_PROVIDERS = {
 };
 
 const DEFAULT_PROVIDER = STORAGE_PROVIDERS.CLOUDINARY;
-const HOMEWORK_FOLDER = "homework-files";
+const HOMEWORK_FOLDER = "homework";
 const DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive"];
 
 const getStorageProvider = () => {

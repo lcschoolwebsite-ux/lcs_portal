@@ -8,12 +8,11 @@ const homeworkUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 15 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = [
-      "application/pdf"
-    ];
+    const isPdf = file.mimetype === "application/pdf";
+    const isImage = String(file.mimetype || "").startsWith("image/");
 
-    if (!allowedTypes.includes(file.mimetype)) {
-      return cb(new Error("Only PDF files are allowed"));
+    if (!isPdf && !isImage) {
+      return cb(new Error("Only PDF or image files are allowed"));
     }
 
     cb(null, true);
@@ -25,7 +24,7 @@ const handleHomeworkUpload = (req, res, next) => {
     if (!err) return next();
 
     const message = err.code === "LIMIT_FILE_SIZE"
-      ? "Homework PDF must be 15 MB or smaller"
+      ? "Homework file must be 15 MB or smaller"
       : err.message;
 
     return res.status(400).json({ message });

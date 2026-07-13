@@ -16,6 +16,16 @@ const formatDate = value => {
   });
 };
 
+const getHomeworkFileKind = fileName => {
+  const ext = String(fileName || "").split(".").pop().toLowerCase();
+  if (["png", "jpg", "jpeg", "webp", "gif"].includes(ext)) return "image";
+  return "pdf";
+};
+
+const getHomeworkFileAccept = fileKind => fileKind === "image"
+  ? "image/*"
+  : "application/pdf";
+
 export default function Homework() {
   const { user } = useAuth();
   const [classes, setClasses] = useState([]);
@@ -34,14 +44,16 @@ export default function Homework() {
     subjectId: "",
     title: "",
     description: "",
-    file: null
+    file: null,
+    fileKind: "pdf"
   });
   const [editForm, setEditForm] = useState({
     classId: "",
     subjectId: "",
     title: "",
     description: "",
-    file: null
+    file: null,
+    fileKind: "pdf"
   });
 
   const accessibleClasses = useMemo(
@@ -128,11 +140,11 @@ export default function Homework() {
       if (nextClassId) {
         const teacherSubject = getTeacherSubjectForClass(user, nextClassId, subjects, classes);
         const classSubjects = getTeacherSubjectsForClass(user, nextClassId, subjects);
-        setForm(prev => ({
-          ...prev,
-          classId: nextClassId,
-          subjectId: teacherSubject?._id || classSubjects[0]?._id || prev.subjectId || ""
-        }));
+    setForm(prev => ({
+      ...prev,
+      classId: nextClassId,
+      subjectId: teacherSubject?._id || classSubjects[0]?._id || prev.subjectId || ""
+    }));
       }
     }
   }, [classes, form.classId, selectedClassId, subjects, user]);
@@ -152,7 +164,7 @@ export default function Homework() {
   const handleSubmit = async e => {
     e.preventDefault();
     if (!form.classId || !form.subjectId || !form.title.trim() || !form.file) {
-      setUploadError("Please choose a class, subject, title, and PDF file.");
+      setUploadError("Please choose a class, subject, title, and file.");
       return;
     }
 
@@ -204,7 +216,8 @@ export default function Homework() {
       subjectId,
       title: item.title || "",
       description: item.description || "",
-      file: null
+      file: null,
+      fileKind: getHomeworkFileKind(item.fileName)
     });
     setIsEditOpen(true);
   };
@@ -256,10 +269,10 @@ export default function Homework() {
 
   return (
     <div>
-      <SectionTitle title="Homework Upload" subtitle="Post class homework PDFs for your students." />
+      <SectionTitle title="Homework Upload" subtitle="Post class homework files for your students." />
 
       <div style={s.pageIntro}>
-        Upload a PDF for one of your assigned classes. Only subjects assigned to you for that class will appear.
+        Upload a PDF or image for one of your assigned classes. Only subjects assigned to you for that class will appear.
       </div>
 
       {uploadError && <div style={s.errorBox}>{uploadError}</div>}
@@ -314,15 +327,27 @@ export default function Homework() {
         </div>
 
         <div style={s.field}>
-          <label style={s.label}>PDF File</label>
+          <label style={s.label}>File Type</label>
+          <select
+            style={s.input}
+            value={form.fileKind}
+            onChange={e => setForm(prev => ({ ...prev, fileKind: e.target.value, file: null }))}
+          >
+            <option value="pdf">PDF</option>
+            <option value="image">Image</option>
+          </select>
+        </div>
+
+        <div style={s.field}>
+          <label style={s.label}>{form.fileKind === "image" ? "Image File" : "PDF File"}</label>
           <input
             style={s.fileInput}
             type="file"
-            accept="application/pdf"
+            accept={getHomeworkFileAccept(form.fileKind)}
             onChange={e => setForm(prev => ({ ...prev, file: e.target.files?.[0] || null }))}
           />
           <div style={s.helperText}>
-            PDF only, up to 15 MB.
+            {form.fileKind === "image" ? "Image files only" : "PDF only"}, up to 15 MB.
             {form.file ? ` Selected: ${form.file.name}` : " No file selected."}
           </div>
         </div>
@@ -363,7 +388,7 @@ export default function Homework() {
               {item.description && <div style={s.itemDescription}>{item.description}</div>}
               <div style={s.itemFooter}>
                 <span>Uploaded by {item.uploadedBy?.name || "Teacher"}</span>
-                <span>{item.fileName || "homework.pdf"}</span>
+        <span>{item.fileName || "homework file"}</span>
               </div>
             </article>
           ))
@@ -374,7 +399,7 @@ export default function Homework() {
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
         title="Edit Homework"
-        subtitle="Update the homework details or replace the PDF."
+        subtitle="Update the homework details or replace the PDF or image."
         maxWidth="720px"
       >
         <form onSubmit={handleUpdate} style={s.editForm}>
@@ -424,15 +449,27 @@ export default function Homework() {
           </div>
 
           <div style={s.field}>
-            <label style={s.label}>Replace PDF</label>
+            <label style={s.label}>File Type</label>
+            <select
+              style={s.input}
+              value={editForm.fileKind}
+              onChange={e => setEditForm(prev => ({ ...prev, fileKind: e.target.value, file: null }))}
+            >
+              <option value="pdf">PDF</option>
+              <option value="image">Image</option>
+            </select>
+          </div>
+
+          <div style={s.field}>
+            <label style={s.label}>{editForm.fileKind === "image" ? "Replace Image" : "Replace PDF"}</label>
             <input
               style={s.fileInput}
               type="file"
-              accept="application/pdf"
+              accept={getHomeworkFileAccept(editForm.fileKind)}
               onChange={e => setEditForm(prev => ({ ...prev, file: e.target.files?.[0] || null }))}
             />
             <div style={s.helperText}>
-              Leave blank to keep the current PDF.
+              Leave blank to keep the current file.
               {editForm.file ? ` Selected: ${editForm.file.name}` : ""}
             </div>
           </div>
