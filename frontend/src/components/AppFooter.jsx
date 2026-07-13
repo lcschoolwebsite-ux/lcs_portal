@@ -12,7 +12,6 @@ export default function AppFooter({ variant = "light" }) {
       >
         AppVertex
       </a>
-      <span> | Built by Leston Coelho &amp; Lenstar Monteiro</span>
     </footer>
   );
 }
