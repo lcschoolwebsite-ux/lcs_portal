@@ -796,6 +796,73 @@ input, select, textarea {
     margin-bottom: 28px !important;
   }
 
+  .student-fees-page {
+    width: 100% !important;
+  }
+
+  .student-fee-main-card,
+  .student-balance-pay-card,
+  .student-term-card,
+  .student-table-card {
+    width: 100% !important;
+  }
+
+  .student-fee-main-card {
+    padding: 18px !important;
+  }
+
+  .student-fee-stats {
+    gap: 12px !important;
+  }
+
+  .student-fee-stats > div {
+    width: 100%;
+  }
+
+  .student-fee-progress {
+    gap: 12px !important;
+  }
+
+  .student-balance-pay-card {
+    padding: 16px !important;
+  }
+
+  .student-balance-pay-card button {
+    width: 100%;
+  }
+
+  .student-term-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  .student-term-card {
+    padding: 16px !important;
+  }
+
+  .student-term-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .student-term-badge {
+    align-self: flex-start;
+  }
+
+  .student-term-actions {
+    width: 100%;
+  }
+
+  .student-term-actions button {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  .student-table-card {
+    padding: 16px !important;
+    overflow: hidden !important;
+  }
+
   .student-fee-option-card {
     text-align: left !important;
     align-items: flex-start !important;
@@ -909,6 +976,31 @@ input, select, textarea {
     width: 100%;
   }
 
+  .student-upi-modal .student-upi-info-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .student-upi-modal .student-upi-amount-buttons {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .student-upi-modal .student-upi-amount-buttons button {
+    width: 100%;
+    white-space: normal;
+    text-align: left;
+    line-height: 1.35;
+  }
+
+  .student-upi-modal button {
+    width: 100%;
+  }
+
+  .student-claim-box {
+    gap: 12px !important;
+  }
+
   .student-marks-page .student-marks-panel {
     padding: 16px !important;
   }
@@ -1005,6 +1097,28 @@ input, select, textarea {
   .student-profile-card,
   .student-report-card {
     padding: 16px !important;
+  }
+
+  .student-fee-main-card {
+    padding: 14px !important;
+  }
+
+  .student-balance-pay-card,
+  .student-term-card,
+  .student-table-card {
+    padding: 14px !important;
+  }
+
+  .student-payment-history-table tr {
+    padding: 10px 12px !important;
+  }
+
+  .student-payment-history-table td {
+    gap: 10px !important;
+  }
+
+  .student-payment-history-table td::before {
+    flex-basis: 44%;
   }
 }
 

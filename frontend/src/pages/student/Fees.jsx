@@ -518,7 +518,7 @@ export default function StudentFees() {
           const remainingAmount = getTermRemainingAmount(term);
           return (
             <div key={term._id} style={s.termCard} className="student-term-card">
-              <div style={s.termHeader}>
+              <div style={s.termHeader} className="student-term-header">
                 <div>
                   <div style={s.termTitle}>{term.termName}</div>
                   <div style={s.termSub}>Amount: ₹{Number(term.amount || 0).toLocaleString("en-IN")}</div>
@@ -528,7 +528,7 @@ export default function StudentFees() {
                     </div>
                   )}
                 </div>
-                <span style={{ ...s.termBadge, ...statusStyle }}>{statusLabel}</span>
+                <span style={{ ...s.termBadge, ...statusStyle }} className="student-term-badge">{statusLabel}</span>
               </div>
 
               {canUseUpi ? (
@@ -597,7 +597,7 @@ export default function StudentFees() {
                 <div style={s.amountChooserSub}>
                   Remaining due: ₹{getTermRemainingAmount(upiState.term).toLocaleString("en-IN")}
                 </div>
-                <div style={s.amountButtons}>
+                <div style={s.amountButtons} className="student-upi-amount-buttons">
                   {allowedPresetModes.includes("full") && (
                     <button type="button" style={s.amountBtn} onClick={() => choosePresetAmount("full")}>
                       {fullAmountLabel}
@@ -660,7 +660,7 @@ export default function StudentFees() {
                     </div>
                   )}
 
-                  <div style={s.claimBox}>
+                  <div style={s.claimBox} className="student-claim-box">
                     <label style={s.claimLabel}>Upload payment screenshot</label>
                     <input
                       type="file"
