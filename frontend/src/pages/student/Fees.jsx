@@ -58,6 +58,13 @@ const getStudentId = (user) => {
   return rawId ? String(rawId) : "";
 };
 
+const normalizeInstallmentMode = (value) => {
+  const mode = String(value || "").trim().toUpperCase();
+  if (["THIRD", "1/3", "TERM WISE", "TERM-WISE", "TERMWISE"].includes(mode)) return "TERMWISE";
+  if (["HALF", "CUSTOM", "FULL"].includes(mode)) return mode;
+  return "";
+};
+
 const SCHOOL_UPI_ID = import.meta.env.VITE_SCHOOL_UPI_ID || "lemhs@kbl";
 
 export default function StudentFees() {
@@ -79,6 +86,7 @@ export default function StudentFees() {
     payeeVpa: "",
     screenshotFile: null,
     screenshotName: "",
+    selectedInstallmentMode: "",
     error: "",
   });
 
@@ -157,6 +165,7 @@ export default function StudentFees() {
       error: "",
       screenshotFile: null,
       screenshotName: "",
+      selectedInstallmentMode: "",
       selectedAmount: 0
     }));
   };
@@ -179,6 +188,7 @@ export default function StudentFees() {
       payeeVpa: "",
       screenshotFile: null,
       screenshotName: "",
+      selectedInstallmentMode: "",
       error: "",
     });
 
@@ -195,7 +205,7 @@ export default function StudentFees() {
     });
   };
 
-  const preparePaymentLink = async (amountOverride) => {
+  const preparePaymentLink = async (amountOverride, installmentMode = "") => {
     const term = upiState.term;
     if (!term?._id) return;
     const remainingAmount = getTermRemainingAmount(term);
@@ -215,6 +225,7 @@ export default function StudentFees() {
       loading: true,
       phase: "pay",
       selectedAmount: amount,
+      selectedInstallmentMode: installmentMode,
       error: "",
       upiLink: "",
       qrCodeDataUrl: "",
@@ -258,9 +269,10 @@ export default function StudentFees() {
     setUpiState(prev => ({
       ...prev,
       selectedAmount: nextAmount,
+      selectedInstallmentMode: mode,
       error: ""
     }));
-    await preparePaymentLink(nextAmount);
+    await preparePaymentLink(nextAmount, mode);
   };
 
   const submitUpiClaim = async () => {
@@ -289,6 +301,9 @@ export default function StudentFees() {
       const formData = new FormData();
       formData.append("screenshot", screenshot);
       formData.append("amount", String(amount));
+      if (upiState.selectedInstallmentMode) {
+        formData.append("installmentMode", upiState.selectedInstallmentMode);
+      }
       const { data } = await api.post(`/student-fees/${getStudentId(user)}/terms/${term._id}/claim-payment`, formData);
 
       alert("Payment claim submitted for admin verification.");
@@ -447,19 +462,24 @@ export default function StudentFees() {
   const classLabel = [user?.class?.name, user?.class?.section].filter(Boolean).join("");
   const selectedTermRemainingAmount = getTermRemainingAmount(upiState.term);
   const selectedTermBaseAmount = Number(upiState.term?.amount || 0);
-  const selectedTermInstallmentMode = String(upiState.term?.installmentMode || "").toUpperCase();
+  const selectedTermConfirmedAmount = getTermConfirmedAmount(upiState.term);
+  const selectedTermInstallmentMode = normalizeInstallmentMode(upiState.term?.installmentMode);
+  const termWiseInstallmentAmount = Math.max(1, Math.round(selectedTermBaseAmount / 3));
+  const termWiseNextRound = Math.min(3, Math.max(1, Math.floor(selectedTermConfirmedAmount / termWiseInstallmentAmount) + 1));
+  const isTermWisePlan = selectedTermInstallmentMode === "TERMWISE";
   const allowedPresetModes = selectedTermInstallmentMode === "HALF"
     ? ["full", "half"]
-    : selectedTermInstallmentMode === "THIRD"
-      ? ["full", "third"]
+    : selectedTermInstallmentMode === "TERMWISE"
+      ? ["full", "termwise"]
       : selectedTermInstallmentMode === "FULL"
         ? ["full"]
-        : ["full", "half", "third"];
+        : ["full", "half", "termwise"];
   const fullAmountLabel = `Pay Full (remaining balance) - ₹${selectedTermRemainingAmount.toLocaleString("en-IN")}`;
   const halfInstallmentAmount = Math.max(1, Math.round(selectedTermBaseAmount / 2));
-  const thirdInstallmentAmount = Math.max(1, Math.round(selectedTermBaseAmount / 3));
   const halfAmountLabel = `Pay Half (₹${halfInstallmentAmount.toLocaleString("en-IN")} of original term)`;
-  const thirdAmountLabel = `Pay 1/3 (₹${thirdInstallmentAmount.toLocaleString("en-IN")} of original term)`;
+  const termWiseAmountLabel = isTermWisePlan
+    ? `Pay Term Wise Round ${termWiseNextRound}/3 (₹${termWiseInstallmentAmount.toLocaleString("en-IN")})`
+    : `Pay Term Wise (₹${termWiseInstallmentAmount.toLocaleString("en-IN")} each for 3 rounds)`;
 
   return (
     <div style={s.container} className="student-fees-page">
@@ -608,15 +628,20 @@ export default function StudentFees() {
                       {halfAmountLabel}
                     </button>
                   )}
-                  {allowedPresetModes.includes("third") && (
-                    <button type="button" style={s.amountBtn} onClick={() => choosePresetAmount("third")}>
-                      {thirdAmountLabel}
+                  {allowedPresetModes.includes("termwise") && (
+                    <button type="button" style={s.amountBtn} onClick={() => choosePresetAmount("termwise")}>
+                      {termWiseAmountLabel}
                     </button>
                   )}
                 </div>
                 <div style={s.screenshotHint}>
-                  Full uses the remaining balance. Half and one-third are based on the original term amount and rounded to the nearest rupee.
+                  Full uses the remaining balance. Half and term-wise are based on the original term amount and rounded to the nearest rupee. Term-wise splits the fee into 3 rounds.
                 </div>
+                {isTermWisePlan && (
+                  <div style={{ ...s.screenshotHint, marginTop: "10px", fontWeight: 700 }}>
+                    Term-wise plan: round {termWiseNextRound} of 3. Next term amount: ₹{termWiseInstallmentAmount.toLocaleString("en-IN")}. Remaining after this payment: ₹{selectedTermRemainingAmount.toLocaleString("en-IN")}.
+                  </div>
+                )}
               </div>
             </>
           ) : (

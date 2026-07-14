@@ -42,7 +42,7 @@ const studentFeeSchema = new mongoose.Schema({
       rejectionReason: { type: String, trim: true, default: "" },
       installmentMode: {
         type: String,
-        enum: ["HALF", "THIRD", "CUSTOM", "FULL"],
+        enum: ["HALF", "TERMWISE", "CUSTOM", "FULL"],
         set: value => (value == null || value === "" ? undefined : value)
       }
     }
@@ -79,6 +79,9 @@ studentFeeSchema.pre("save", function(next) {
 
 studentFeeSchema.pre("validate", function(next) {
   this.terms = (this.terms || []).map(term => {
+    if (term.installmentMode === "THIRD") {
+      term.installmentMode = "TERMWISE";
+    }
     if (term.installmentMode == null || term.installmentMode === "") {
       term.installmentMode = undefined;
     }

@@ -15,9 +15,16 @@ const SCHOOL_NAME = process.env.SCHOOL_NAME || "Loreto English Medium High Schoo
 const FEE_SCREENSHOT_FOLDER = "fee-payment-screenshots";
 const INSTALLMENT_MODES = Object.freeze({
   HALF: "HALF",
-  THIRD: "THIRD",
+  TERMWISE: "TERMWISE",
   CUSTOM: "CUSTOM",
   FULL: "FULL"
+});
+const INSTALLMENT_MODE_ALIASES = Object.freeze({
+  THIRD: INSTALLMENT_MODES.TERMWISE,
+  "1/3": INSTALLMENT_MODES.TERMWISE,
+  "TERM WISE": INSTALLMENT_MODES.TERMWISE,
+  "TERM-WISE": INSTALLMENT_MODES.TERMWISE,
+  TERMWISE: INSTALLMENT_MODES.TERMWISE
 });
 
 const uploadBufferToCloudinary = (buffer, options) => new Promise((resolve, reject) => {
@@ -123,6 +130,7 @@ const normalizeAmount = value => {
 
 const normalizeInstallmentMode = value => {
   const mode = String(value || "").trim().toUpperCase();
+  if (INSTALLMENT_MODE_ALIASES[mode]) return INSTALLMENT_MODE_ALIASES[mode];
   return Object.values(INSTALLMENT_MODES).includes(mode) ? mode : "";
 };
 
@@ -133,14 +141,14 @@ const buildInstallmentModeField = value => {
 
 const amountsMatch = (first, second) => Math.abs(normalizeAmount(first) - normalizeAmount(second)) < 0.01;
 
-const getThirdInstallmentAmount = term => normalizeAmount(Number(term?.amount || 0) / 3);
+const getTermWiseInstallmentAmount = term => normalizeAmount(Number(term?.amount || 0) / 3);
 
 const getHalfInstallmentAmount = term => normalizeAmount(Number(term?.amount || 0) / 2);
 
 const inferInstallmentModeForAmount = ({ amount, remainingAmount, term }) => {
   if (amountsMatch(amount, remainingAmount)) return INSTALLMENT_MODES.FULL;
   if (amountsMatch(amount, getHalfInstallmentAmount(term))) return INSTALLMENT_MODES.HALF;
-  if (amountsMatch(amount, getThirdInstallmentAmount(term))) return INSTALLMENT_MODES.THIRD;
+  if (amountsMatch(amount, getTermWiseInstallmentAmount(term))) return INSTALLMENT_MODES.TERMWISE;
   return INSTALLMENT_MODES.CUSTOM;
 };
 
@@ -155,7 +163,7 @@ const resolveInstallmentMode = ({ term, amount, remainingAmount, requestedMode, 
   const resolved = requested || inferInstallmentModeForAmount({ amount, remainingAmount, term });
   const lockedMode = normalizeInstallmentMode(existingMode);
   const halfAmount = getHalfInstallmentAmount(term);
-  const thirdAmount = getThirdInstallmentAmount(term);
+  const termWiseAmount = getTermWiseInstallmentAmount(term);
 
   if (lockedMode === INSTALLMENT_MODES.HALF) {
     const isHalf = amountsMatch(amount, halfAmount);
@@ -167,11 +175,11 @@ const resolveInstallmentMode = ({ term, amount, remainingAmount, requestedMode, 
     }
   }
 
-  if (lockedMode === INSTALLMENT_MODES.THIRD) {
-    const isThird = amountsMatch(amount, thirdAmount);
+  if (lockedMode === INSTALLMENT_MODES.TERMWISE) {
+    const isTermWise = amountsMatch(amount, termWiseAmount);
     const isFull = amountsMatch(amount, remainingAmount);
-    if (!isThird && !isFull) {
-      const error = new Error("This term is on a 1/3 installment plan - please record a 1/3 payment or the full remaining balance instead");
+    if (!isTermWise && !isFull) {
+      const error = new Error("This term is on a term-wise installment plan - please record the term-wise payment or the full remaining balance instead");
       error.status = 400;
       throw error;
     }
@@ -190,8 +198,8 @@ const resolveInstallmentMode = ({ term, amount, remainingAmount, requestedMode, 
       throw error;
     }
 
-    if (resolved === INSTALLMENT_MODES.THIRD && !amountsMatch(amount, thirdAmount)) {
-      const error = new Error("1/3 payment must match the term's fixed third amount");
+    if (resolved === INSTALLMENT_MODES.TERMWISE && !amountsMatch(amount, termWiseAmount)) {
+      const error = new Error("Term-wise payment must match the term's fixed installment amount");
       error.status = 400;
       throw error;
     }
