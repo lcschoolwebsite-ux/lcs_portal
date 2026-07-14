@@ -51,10 +51,12 @@ export default function StudentHomework() {
     if (!item?._id) return;
     setDownloadingId(item._id);
     try {
-      const { data } = await api.get(`/homework/${item._id}/download`, {
+      const response = await api.get(`/homework/${item._id}/download`, {
         responseType: "blob"
       });
-      const blob = new Blob([data], { type: "application/pdf" });
+      const blobData = response.data;
+      const contentType = response.headers?.["content-type"] || blobData?.type || "application/octet-stream";
+      const blob = new Blob([blobData], { type: contentType });
       const blobUrl = window.URL.createObjectURL(blob);
       window.open(blobUrl, "_blank", "noopener,noreferrer");
       setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60_000);

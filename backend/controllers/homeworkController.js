@@ -44,6 +44,8 @@ const buildDownloadName = homework => {
 };
 
 const getDownloadContentType = homework => {
+  const mimeType = String(homework?.fileMimeType || "").trim().toLowerCase();
+  if (mimeType) return mimeType;
   const ext = path.extname(String(homework?.fileName || "")).toLowerCase();
   if (ext === ".pdf") return "application/pdf";
   if (ext === ".png") return "image/png";
@@ -107,6 +109,7 @@ exports.create = async (req, res) => {
         description: String(description || "").trim(),
         storageId: storage.storageId,
         fileName: file.originalname || "",
+        fileMimeType: file.mimetype || "",
         fileUrl: storage.url || "",
         uploadedBy: req.user.id,
         academicYear: subject.academicYear
@@ -161,7 +164,7 @@ exports.getByClass = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const homework = await Homework.findById(req.params.id).select("_id classId subjectId storageId fileName fileUrl title description academicYear").lean();
+    const homework = await Homework.findById(req.params.id).select("_id classId subjectId storageId fileName fileMimeType fileUrl title description academicYear").lean();
 
     if (!homework) {
       return res.status(404).json({ message: "Homework not found" });
@@ -206,6 +209,7 @@ exports.update = async (req, res) => {
     if (storage) {
       update.storageId = storage.storageId;
       update.fileName = file.originalname || homework.fileName || "";
+      update.fileMimeType = file.mimetype || homework.fileMimeType || "";
       update.fileUrl = storage.url || "";
     }
 

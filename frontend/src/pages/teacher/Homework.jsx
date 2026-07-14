@@ -39,6 +39,13 @@ export default function Homework() {
   const [editingHomework, setEditingHomework] = useState(null);
   const [editError, setEditError] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [previewState, setPreviewState] = useState({
+    loading: false,
+    url: "",
+    kind: "",
+    fileName: "",
+    error: ""
+  });
   const [form, setForm] = useState({
     classId: "",
     subjectId: "",
@@ -140,14 +147,77 @@ export default function Homework() {
       if (nextClassId) {
         const teacherSubject = getTeacherSubjectForClass(user, nextClassId, subjects, classes);
         const classSubjects = getTeacherSubjectsForClass(user, nextClassId, subjects);
-    setForm(prev => ({
-      ...prev,
-      classId: nextClassId,
-      subjectId: teacherSubject?._id || classSubjects[0]?._id || prev.subjectId || ""
-    }));
+        setForm(prev => ({
+          ...prev,
+          classId: nextClassId,
+          subjectId: teacherSubject?._id || classSubjects[0]?._id || prev.subjectId || ""
+        }));
       }
     }
   }, [classes, form.classId, selectedClassId, subjects, user]);
+
+  useEffect(() => {
+    if (!isEditOpen || !editingHomework?._id) {
+      setPreviewState({
+        loading: false,
+        url: "",
+        kind: "",
+        fileName: "",
+        error: ""
+      });
+      return undefined;
+    }
+
+    let cancelled = false;
+    let objectUrl = "";
+
+    const loadPreview = async () => {
+      setPreviewState({
+        loading: true,
+        url: "",
+        kind: "",
+        fileName: editingHomework.fileName || "",
+        error: ""
+      });
+
+      try {
+        const response = await api.get(`/homework/${editingHomework._id}/download`, {
+          responseType: "blob"
+        });
+        const blobData = response.data;
+        const contentType = response.headers?.["content-type"] || blobData?.type || editingHomework.fileMimeType || "";
+        const blob = new Blob([blobData], { type: contentType || "application/octet-stream" });
+        objectUrl = window.URL.createObjectURL(blob);
+
+        if (!cancelled) {
+          setPreviewState({
+            loading: false,
+            url: objectUrl,
+            kind: String(contentType || "").startsWith("image/") ? "image" : "file",
+            fileName: editingHomework.fileName || "",
+            error: ""
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setPreviewState({
+            loading: false,
+            url: "",
+            kind: "",
+            fileName: editingHomework.fileName || "",
+            error: error.response?.data?.message || "Unable to load current homework file."
+          });
+        }
+      }
+    };
+
+    loadPreview();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) window.URL.revokeObjectURL(objectUrl);
+    };
+  }, [editingHomework, isEditOpen]);
 
   const handleClassChange = value => {
     const teacherSubject = getTeacherSubjectForClass(user, value, subjects, classes);
@@ -399,7 +469,7 @@ export default function Homework() {
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
         title="Edit Homework"
-        subtitle="Update the homework details or replace the PDF or image."
+        subtitle="Update the homework details or replace the file."
         maxWidth="720px"
       >
         <form onSubmit={handleUpdate} style={s.editForm}>
@@ -474,6 +544,25 @@ export default function Homework() {
             </div>
           </div>
 
+          <div style={s.previewBox}>
+            <div style={s.previewTitle}>Current File</div>
+            {previewState.loading ? (
+              <div style={s.previewLoading}>Loading current file...</div>
+            ) : previewState.error ? (
+              <div style={s.previewError}>{previewState.error}</div>
+            ) : previewState.url ? (
+              previewState.kind === "image" ? (
+                <img src={previewState.url} alt={editingHomework?.title || "Homework preview"} style={s.previewImage} />
+              ) : (
+                <a href={previewState.url} target="_blank" rel="noreferrer" style={s.previewLink}>
+                  Open current file
+                </a>
+              )
+            ) : (
+              <div style={s.previewEmpty}>No file preview available.</div>
+            )}
+          </div>
+
           <button type="submit" style={s.submitBtn} disabled={savingEdit}>
             {savingEdit ? "Saving..." : "Save Changes"}
           </button>
@@ -494,6 +583,13 @@ const s = {
   input: { width: "100%", border: "1.5px solid var(--border)", borderRadius: "14px", padding: "12px 14px", background: "var(--white)", color: "var(--navy)", fontWeight: 600, boxSizing: "border-box" },
   fileInput: { width: "100%", border: "1.5px dashed var(--border)", borderRadius: "14px", padding: "12px 14px", background: "var(--light-bg)", color: "var(--navy)", fontWeight: 600, boxSizing: "border-box" },
   helperText: { fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: 600, lineHeight: 1.5 },
+  previewBox: { display: "flex", flexDirection: "column", gap: "12px", padding: "16px", borderRadius: "16px", border: "1px solid var(--border)", background: "var(--light-bg)" },
+  previewTitle: { fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--gold)", fontWeight: 900 },
+  previewLoading: { padding: "18px", borderRadius: "14px", background: "white", color: "var(--navy)", fontWeight: 700, textAlign: "center" },
+  previewError: { padding: "14px 16px", borderRadius: "14px", background: "var(--danger-bg)", color: "var(--danger-text)", border: "1px solid var(--danger-text)", fontWeight: 700 },
+  previewEmpty: { padding: "18px", borderRadius: "14px", background: "white", color: "var(--text-muted)", fontWeight: 700, textAlign: "center" },
+  previewImage: { width: "100%", maxHeight: "360px", objectFit: "contain", borderRadius: "14px", border: "1px solid var(--border)", background: "white" },
+  previewLink: { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "12px 16px", borderRadius: "14px", background: "var(--navy)", color: "var(--gold-light)", fontWeight: 900, textDecoration: "none", width: "fit-content" },
   submitBtn: { padding: "14px 18px", borderRadius: "16px", border: "none", background: "var(--navy)", color: "var(--gold-light)", fontWeight: 900, cursor: "pointer", alignSelf: "flex-start" },
   listHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", marginBottom: "14px" },
   sectionTitle: { margin: 0, fontSize: "1.1rem", fontWeight: 900, color: "var(--navy)" },

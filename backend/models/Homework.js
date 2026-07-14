@@ -7,6 +7,7 @@ const homeworkSchema = new mongoose.Schema({
   description: { type: String, trim: true, default: "" },
   storageId: { type: String, required: true, trim: true },
   fileName: { type: String, trim: true, default: "" },
+  fileMimeType: { type: String, trim: true, default: "" },
   fileUrl: { type: String, trim: true, default: "" },
   uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Teacher", required: true },
   academicYear: { type: mongoose.Schema.Types.ObjectId, ref: "AcademicYear", required: true }

@@ -32,6 +32,15 @@ export default function AdminHomework() {
   });
   const [editError, setEditError] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewHomework, setViewHomework] = useState(null);
+  const [viewState, setViewState] = useState({
+    loading: false,
+    url: "",
+    kind: "",
+    fileName: "",
+    error: ""
+  });
 
   const subjectsForClass = useMemo(() => {
     if (!selectedClassId) return [];
@@ -106,6 +115,73 @@ export default function AdminHomework() {
       alert(error.response?.data?.message || "Failed to delete homework.");
     }
   };
+
+  const openView = item => {
+    setViewHomework(item);
+    setViewState({
+      loading: true,
+      url: "",
+      kind: "",
+      fileName: item.fileName || "",
+      error: ""
+    });
+    setViewOpen(true);
+  };
+
+  useEffect(() => {
+    if (!viewOpen || !viewHomework?._id) {
+      setViewState({
+        loading: false,
+        url: "",
+        kind: "",
+        fileName: "",
+        error: ""
+      });
+      return undefined;
+    }
+
+    let cancelled = false;
+    let objectUrl = "";
+
+    const loadPreview = async () => {
+      try {
+        const response = await api.get(`/homework/${viewHomework._id}/download`, {
+          responseType: "blob"
+        });
+        const blobData = response.data;
+        const contentType = response.headers?.["content-type"] || blobData?.type || viewHomework.fileMimeType || "";
+        const blob = new Blob([blobData], { type: contentType || "application/octet-stream" });
+        objectUrl = window.URL.createObjectURL(blob);
+
+        if (!cancelled) {
+          setViewState({
+            loading: false,
+            url: objectUrl,
+            kind: String(contentType || "").startsWith("image/") ? "image" : "file",
+            fileName: viewHomework.fileName || "",
+            error: ""
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setViewState({
+            loading: false,
+            url: "",
+            kind: "",
+            fileName: viewHomework.fileName || "",
+            error: error.response?.data?.message || "Unable to load homework file."
+          });
+        }
+      }
+    };
+
+    loadPreview();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) window.URL.revokeObjectURL(objectUrl);
+    };
+  }, [viewHomework, viewOpen]);
 
   const openEdit = item => {
     setEditingHomework(item);
@@ -220,7 +296,8 @@ export default function AdminHomework() {
                   <span>{item.uploadedBy?.name || "Teacher"}</span>
                 </div>
               </div>
-              <div style={s.actions}>
+            <div style={s.actions}>
+                <button type="button" style={s.viewBtn} onClick={() => openView(item)}>View</button>
                 <button type="button" style={s.editBtn} onClick={() => openEdit(item)}>Edit</button>
                 <button type="button" style={s.deleteBtn} onClick={() => handleDelete(item._id)}>Delete</button>
               </div>
@@ -228,7 +305,7 @@ export default function AdminHomework() {
 
             {item.description && <div style={s.description}>{item.description}</div>}
             <div style={s.footer}>
-              <span>{item.fileName || "homework.pdf"}</span>
+              <span>{item.fileName || "homework file"}</span>
             </div>
           </article>
         ))}
@@ -238,7 +315,7 @@ export default function AdminHomework() {
         isOpen={editOpen}
         onClose={() => setEditOpen(false)}
         title="Edit Homework"
-        subtitle="Change the homework metadata or replace the PDF."
+        subtitle="Change the homework metadata or replace the file."
         maxWidth="720px"
       >
         <form onSubmit={handleUpdate} style={s.editForm}>
@@ -279,15 +356,15 @@ export default function AdminHomework() {
           </div>
 
           <div style={s.field}>
-            <label style={s.label}>Replace PDF</label>
+            <label style={s.label}>Replace File</label>
             <input
               style={s.fileInput}
               type="file"
-              accept="application/pdf"
+              accept="application/pdf,image/*"
               onChange={e => setEditForm(prev => ({ ...prev, file: e.target.files?.[0] || null }))}
             />
             <div style={s.helperText}>
-              Leave blank to keep the current PDF.
+              Leave blank to keep the current file.
               {editForm.file ? ` Selected: ${editForm.file.name}` : ""}
             </div>
           </div>
@@ -296,6 +373,32 @@ export default function AdminHomework() {
             {savingEdit ? "Saving..." : "Save Changes"}
           </button>
         </form>
+      </Modal>
+
+      <Modal
+        isOpen={viewOpen}
+        onClose={() => setViewOpen(false)}
+        title="View Homework"
+        subtitle={viewHomework ? `${viewHomework.title || "Homework"} file preview` : "Homework file preview"}
+        maxWidth="760px"
+      >
+        <div style={s.viewBox}>
+          {viewState.loading ? (
+            <div style={s.empty}>Loading homework file...</div>
+          ) : viewState.error ? (
+            <div style={s.errorBox}>{viewState.error}</div>
+          ) : viewState.url ? (
+            viewState.kind === "image" ? (
+              <img src={viewState.url} alt={viewHomework?.title || "Homework preview"} style={s.previewImage} />
+            ) : (
+              <a href={viewState.url} target="_blank" rel="noreferrer" style={s.previewLink}>
+                Open file
+              </a>
+            )
+          ) : (
+            <div style={s.empty}>No file available.</div>
+          )}
+        </div>
       </Modal>
     </div>
   );
@@ -321,9 +424,13 @@ const s = {
   description: { marginTop: "12px", color: "var(--navy)", fontWeight: 600, lineHeight: 1.6, whiteSpace: "pre-wrap" },
   footer: { marginTop: "14px", fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: 700 },
   actions: { display: "flex", gap: "10px", flexWrap: "wrap" },
+  viewBtn: { padding: "10px 14px", borderRadius: "14px", border: "1px solid var(--gold)", background: "white", color: "var(--gold)", fontWeight: 900, cursor: "pointer" },
   editBtn: { padding: "10px 14px", borderRadius: "14px", border: "1px solid var(--navy)", background: "white", color: "var(--navy)", fontWeight: 900, cursor: "pointer" },
   deleteBtn: { padding: "10px 14px", borderRadius: "14px", border: "1px solid var(--danger-text)", background: "white", color: "var(--danger-text)", fontWeight: 900, cursor: "pointer" },
   errorBox: { marginBottom: "16px", padding: "14px 16px", borderRadius: "14px", background: "var(--danger-bg)", color: "var(--danger-text)", border: "1px solid var(--danger-text)", fontWeight: 700 },
   editForm: { display: "flex", flexDirection: "column", gap: "16px" },
-  submitBtn: { padding: "14px 18px", borderRadius: "16px", border: "none", background: "var(--navy)", color: "var(--gold-light)", fontWeight: 900, cursor: "pointer", alignSelf: "flex-start" }
+  submitBtn: { padding: "14px 18px", borderRadius: "16px", border: "none", background: "var(--navy)", color: "var(--gold-light)", fontWeight: 900, cursor: "pointer", alignSelf: "flex-start" },
+  viewBox: { display: "flex", flexDirection: "column", gap: "14px" },
+  previewImage: { width: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: "16px", border: "1px solid var(--border)", background: "var(--light-bg)" },
+  previewLink: { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "14px 18px", borderRadius: "16px", background: "var(--navy)", color: "var(--gold-light)", fontWeight: 900, textDecoration: "none", width: "fit-content" }
 };
