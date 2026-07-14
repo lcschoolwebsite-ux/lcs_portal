@@ -466,9 +466,8 @@ export default function StudentFees() {
   const selectedTermInstallmentMode = normalizeInstallmentMode(upiState.term?.installmentMode);
   const termWiseInstallmentAmount = Math.max(1, Math.round(selectedTermBaseAmount / 3));
   const termWiseNextRound = Math.min(3, Math.max(1, Math.floor(selectedTermConfirmedAmount / termWiseInstallmentAmount) + 1));
-  const isBrandNewTerm = selectedTermConfirmedAmount <= 0 && selectedTermRemainingAmount > 0;
   const isTermWisePlan = selectedTermInstallmentMode === "TERMWISE";
-  const showTermWiseOption = isBrandNewTerm || isTermWisePlan;
+  const showTermWiseOption = isTermWisePlan || selectedTermConfirmedAmount <= termWiseInstallmentAmount;
   const allowedPresetModes = selectedTermInstallmentMode === "HALF"
     ? ["full", "half"]
     : showTermWiseOption
@@ -638,7 +637,9 @@ export default function StudentFees() {
                 </div>
                 <div style={s.screenshotHint}>
                   Full uses the remaining balance. Half is based on half the original term amount and rounded to the nearest rupee.
-                  {showTermWiseOption && " Term-wise splits the fee into 3 rounds."}
+                  {showTermWiseOption
+                    ? " Term-wise splits the fee into 3 rounds and is shown until the paid amount crosses one term installment."
+                    : " Since the student has already paid more than one term installment, only full or half are shown."}
                 </div>
                 {isTermWisePlan && (
                   <div style={{ ...s.screenshotHint, marginTop: "10px", fontWeight: 700 }}>
