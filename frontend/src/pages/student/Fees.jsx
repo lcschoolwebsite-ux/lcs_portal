@@ -466,14 +466,16 @@ export default function StudentFees() {
   const selectedTermInstallmentMode = normalizeInstallmentMode(upiState.term?.installmentMode);
   const termWiseInstallmentAmount = Math.max(1, Math.round(selectedTermBaseAmount / 3));
   const termWiseNextRound = Math.min(3, Math.max(1, Math.floor(selectedTermConfirmedAmount / termWiseInstallmentAmount) + 1));
+  const isBrandNewTerm = selectedTermConfirmedAmount <= 0 && selectedTermRemainingAmount > 0;
   const isTermWisePlan = selectedTermInstallmentMode === "TERMWISE";
+  const showTermWiseOption = isBrandNewTerm || isTermWisePlan;
   const allowedPresetModes = selectedTermInstallmentMode === "HALF"
     ? ["full", "half"]
-    : selectedTermInstallmentMode === "TERMWISE"
+    : showTermWiseOption
       ? ["full", "termwise"]
       : selectedTermInstallmentMode === "FULL"
         ? ["full"]
-        : ["full", "half", "termwise"];
+        : ["full", "half"];
   const fullAmountLabel = `Pay Full (remaining balance) - ₹${selectedTermRemainingAmount.toLocaleString("en-IN")}`;
   const halfInstallmentAmount = Math.max(1, Math.round(selectedTermBaseAmount / 2));
   const halfAmountLabel = `Pay Half (₹${halfInstallmentAmount.toLocaleString("en-IN")} of original term)`;
@@ -635,7 +637,8 @@ export default function StudentFees() {
                   )}
                 </div>
                 <div style={s.screenshotHint}>
-                  Full uses the remaining balance. Half and term-wise are based on the original term amount and rounded to the nearest rupee. Term-wise splits the fee into 3 rounds.
+                  Full uses the remaining balance. Half is based on half the original term amount and rounded to the nearest rupee.
+                  {showTermWiseOption && " Term-wise splits the fee into 3 rounds."}
                 </div>
                 {isTermWisePlan && (
                   <div style={{ ...s.screenshotHint, marginTop: "10px", fontWeight: 700 }}>
