@@ -467,14 +467,14 @@ export default function StudentFees() {
   const termWiseInstallmentAmount = Math.max(1, Math.round(selectedTermBaseAmount / 3));
   const termWiseNextRound = Math.min(3, Math.max(1, Math.floor(selectedTermConfirmedAmount / termWiseInstallmentAmount) + 1));
   const isTermWisePlan = selectedTermInstallmentMode === "TERMWISE";
-  const showTermWiseOption = isTermWisePlan || selectedTermConfirmedAmount <= termWiseInstallmentAmount;
-  const allowedPresetModes = selectedTermInstallmentMode === "HALF"
-    ? ["full", "half"]
-    : showTermWiseOption
-      ? ["full", "termwise"]
-      : selectedTermInstallmentMode === "FULL"
-        ? ["full"]
-        : ["full", "half"];
+  const isBelowTermWiseThreshold = selectedTermBaseAmount < 10000;
+  const isAlreadyPartiallyPaid = selectedTermConfirmedAmount > 0;
+  const showTermWiseOption = !isBelowTermWiseThreshold && !isAlreadyPartiallyPaid;
+  const allowedPresetModes = isBelowTermWiseThreshold
+    ? ["full"]
+    : isAlreadyPartiallyPaid
+      ? ["full", "half"]
+      : ["full", "half", "termwise"];
   const fullAmountLabel = `Pay Full (remaining balance) - ₹${selectedTermRemainingAmount.toLocaleString("en-IN")}`;
   const halfInstallmentAmount = Math.max(1, Math.round(selectedTermBaseAmount / 2));
   const halfAmountLabel = `Pay Half (₹${halfInstallmentAmount.toLocaleString("en-IN")} of original term)`;
@@ -638,10 +638,12 @@ export default function StudentFees() {
                 <div style={s.screenshotHint}>
                   Full uses the remaining balance. Half is based on half the original term amount and rounded to the nearest rupee.
                   {showTermWiseOption
-                    ? " Term-wise splits the fee into 3 rounds and is shown until the paid amount crosses one term installment."
-                    : " Since the student has already paid more than one term installment, only full or half are shown."}
+                    ? " Term-wise splits the fee into 3 rounds and is shown only before any payment is made."
+                    : isBelowTermWiseThreshold
+                      ? " Since the term amount is below ₹10,000, only full payment is shown."
+                      : " Since a payment has already been made, only full or half are shown."}
                 </div>
-                {isTermWisePlan && (
+                {showTermWiseOption && (
                   <div style={{ ...s.screenshotHint, marginTop: "10px", fontWeight: 700 }}>
                     Term-wise plan: round {termWiseNextRound} of 3. Next term amount: ₹{termWiseInstallmentAmount.toLocaleString("en-IN")}. Remaining after this payment: ₹{selectedTermRemainingAmount.toLocaleString("en-IN")}.
                   </div>
