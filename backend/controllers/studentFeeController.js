@@ -126,6 +126,11 @@ const normalizeInstallmentMode = value => {
   return Object.values(INSTALLMENT_MODES).includes(mode) ? mode : "";
 };
 
+const buildInstallmentModeField = value => {
+  const mode = normalizeInstallmentMode(value);
+  return mode ? { installmentMode: mode } : {};
+};
+
 const amountsMatch = (first, second) => Math.abs(normalizeAmount(first) - normalizeAmount(second)) < 0.01;
 
 const getThirdInstallmentAmount = term => normalizeAmount(Number(term?.amount || 0) / 3);
@@ -815,7 +820,7 @@ exports.verifyUpiPayment = async (req, res) => {
     term.claimedAt = null;
     term.rejectionReason = rejectionReason || "Rejected by administrator";
     if (!hasConfirmedPaid) {
-      term.installmentMode = null;
+      term.installmentMode = undefined;
     }
     await fee.save();
 
@@ -1025,7 +1030,7 @@ exports.verifyFlexiblePayment = async (req, res) => {
       razorpayPaymentId: razorpay_payment_id,
       razorpaySignature: razorpay_signature,
       receiptGeneratedAt: new Date(),
-      installmentMode: normalizeInstallmentMode(requestedInstallmentMode) || null
+      ...buildInstallmentModeField(requestedInstallmentMode)
     });
     await fee.save();
     await notifyStudentById(
@@ -1104,7 +1109,7 @@ exports.recordFlexiblePayment = async (req, res) => {
         paidDate: paidDate,
         receiptNumber: `RCP-MAN-${Date.now()}`,
         receiptGeneratedAt: new Date(),
-        installmentMode: normalizeInstallmentMode(requestedInstallmentMode) || null
+        ...buildInstallmentModeField(requestedInstallmentMode)
       });
     }
 
