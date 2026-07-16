@@ -97,13 +97,15 @@ const buildUpiLink = ({ amount, note, transactionRef }) => {
   const params = new URLSearchParams({
     pa: SCHOOL_UPI_ID,
     pn: SCHOOL_NAME,
-    mc: SCHOOL_MCC,
     tr: transactionRef || makeUpiReference(SCHOOL_UPI_ID, amount, note, Date.now()),
     am: String(Number(amount || 0).toFixed(2)),
     tn: note || "Test Payment",
     cu: "INR"
   });
 
+  if (SCHOOL_MCC && SCHOOL_MCC !== "0000") {
+    params.set("mc", SCHOOL_MCC);
+  }
   if (SCHOOL_URL) {
     params.set("url", SCHOOL_URL);
   }
@@ -112,6 +114,17 @@ const buildUpiLink = ({ amount, note, transactionRef }) => {
     upiLink: `upi://pay?${params.toString()}`,
     upiTrReference: params.get("tr") || ""
   };
+};
+
+const buildLiteUpiLink = ({ amount, note }) => {
+  const params = new URLSearchParams({
+    pa: SCHOOL_UPI_ID,
+    am: String(Number(amount || 0).toFixed(2)),
+    tn: note || "Test Payment",
+    cu: "INR"
+  });
+
+  return `upi://pay?${params.toString()}`;
 };
 
 const getTermConfirmedAmount = term => {
@@ -496,6 +509,10 @@ exports.getUpiLink = async (req, res) => {
       note: isBalancePayment ? "Balance Payment" : `Fee ${termLabel}`,
       transactionRef
     });
+    const liteUpiLink = buildLiteUpiLink({
+      amount,
+      note: isBalancePayment ? "Balance Payment" : `Fee ${termLabel}`
+    });
 
     const qrCodeDataUrl = await QRCode.toDataURL(upiLink, {
       errorCorrectionLevel: "M",
@@ -505,6 +522,7 @@ exports.getUpiLink = async (req, res) => {
 
     res.json({
       upiLink,
+      liteUpiLink,
       qrCodeDataUrl,
       upiTrReference,
       transactionRef,

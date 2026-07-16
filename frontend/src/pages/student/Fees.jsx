@@ -83,6 +83,7 @@ export default function StudentFees() {
     customAmountInput: "",
     showCustomAmount: false,
     upiLink: "",
+    liteUpiLink: "",
     qrCodeDataUrl: "",
     upiTrReference: "",
     payeeVpa: "",
@@ -189,6 +190,7 @@ export default function StudentFees() {
       customAmountInput: String(remainingAmount || ""),
       showCustomAmount: false,
       upiLink: "",
+      liteUpiLink: "",
       qrCodeDataUrl: "",
       upiTrReference: "",
       payeeVpa: "",
@@ -234,6 +236,7 @@ export default function StudentFees() {
       selectedInstallmentMode: installmentMode,
       error: "",
       upiLink: "",
+      liteUpiLink: "",
       qrCodeDataUrl: "",
       upiTrReference: "",
       payeeVpa: ""
@@ -247,6 +250,7 @@ export default function StudentFees() {
         ...prev,
         loading: false,
         upiLink: data.upiLink,
+        liteUpiLink: data.liteUpiLink || data.upiLink,
         qrCodeDataUrl: data.qrCodeDataUrl,
         upiTrReference: data.transactionRef || data.upiTrReference || "",
         payeeVpa: data.payeeVpa || "",
@@ -740,9 +744,14 @@ export default function StudentFees() {
                   </div>
 
                   {isMobile ? (
-                    <a href={upiState.upiLink} style={s.upiDeepLink} onClick={closeUpiModal}>
-                      Open in UPI App
-                    </a>
+                    <div style={s.mobileUpiActions}>
+                      <a href={upiState.liteUpiLink || upiState.upiLink} style={s.upiDeepLink} onClick={closeUpiModal}>
+                        Open simplified UPI link
+                      </a>
+                      <a href={upiState.upiLink} style={s.upiSecondaryLink} onClick={closeUpiModal}>
+                        Open full UPI link
+                      </a>
+                    </div>
                   ) : (
                     <div style={s.qrWrap}>
                       {upiState.qrCodeDataUrl ? (
@@ -852,4 +861,6 @@ const s = {
   screenshotHint: { fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: "600", lineHeight: 1.5 },
   claimBtn: { padding: "14px 16px", borderRadius: "18px", border: "none", background: "var(--navy)", color: "var(--gold-light)", fontWeight: "800", cursor: "pointer" },
   upiDeepLink: { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "14px 16px", borderRadius: "18px", background: "var(--navy)", color: "var(--gold-light)", fontWeight: "800", textDecoration: "none" }
+  ,mobileUpiActions: { display: "flex", flexDirection: "column", gap: "10px" },
+  upiSecondaryLink: { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "14px 16px", borderRadius: "18px", background: "white", color: "var(--navy)", border: "1px solid var(--border)", fontWeight: "800", textDecoration: "none" }
 };
