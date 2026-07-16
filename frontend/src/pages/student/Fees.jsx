@@ -80,6 +80,8 @@ export default function StudentFees() {
     phase: "select",
     term: null,
     selectedAmount: 0,
+    customAmountInput: "",
+    showCustomAmount: false,
     upiLink: "",
     qrCodeDataUrl: "",
     upiTrReference: "",
@@ -166,6 +168,8 @@ export default function StudentFees() {
       screenshotFile: null,
       screenshotName: "",
       selectedInstallmentMode: "",
+      customAmountInput: "",
+      showCustomAmount: false,
       selectedAmount: 0
     }));
   };
@@ -182,6 +186,8 @@ export default function StudentFees() {
       phase: "select",
       term,
       selectedAmount: remainingAmount,
+      customAmountInput: String(remainingAmount || ""),
+      showCustomAmount: false,
       upiLink: "",
       qrCodeDataUrl: "",
       upiTrReference: "",
@@ -242,7 +248,7 @@ export default function StudentFees() {
         loading: false,
         upiLink: data.upiLink,
         qrCodeDataUrl: data.qrCodeDataUrl,
-        upiTrReference: data.upiTrReference || "",
+        upiTrReference: data.transactionRef || data.upiTrReference || "",
         payeeVpa: data.payeeVpa || "",
         selectedAmount: Number(data.amount || amount)
       }));
@@ -273,6 +279,40 @@ export default function StudentFees() {
       error: ""
     }));
     await preparePaymentLink(nextAmount, mode);
+  };
+
+  const toggleCustomAmount = () => {
+    setUpiState(prev => ({
+      ...prev,
+      showCustomAmount: true,
+      error: "",
+      customAmountInput: prev.customAmountInput || String(prev.selectedAmount || getTermRemainingAmount(prev.term) || "")
+    }));
+  };
+
+  const applyCustomAmount = async () => {
+    const term = upiState.term;
+    if (!term) return;
+
+    const remainingAmount = getTermRemainingAmount(term);
+    const amount = Math.round(Number(upiState.customAmountInput || 0) || 0);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setUpiState(prev => ({ ...prev, error: "Enter a valid custom amount." }));
+      return;
+    }
+    if (amount > remainingAmount) {
+      setUpiState(prev => ({ ...prev, error: "Custom amount cannot exceed the remaining due." }));
+      return;
+    }
+
+    setUpiState(prev => ({
+      ...prev,
+      selectedAmount: amount,
+      selectedInstallmentMode: "custom",
+      error: ""
+    }));
+    await preparePaymentLink(amount, "custom");
   };
 
   const submitUpiClaim = async () => {
@@ -634,7 +674,29 @@ export default function StudentFees() {
                       {termWiseAmountLabel}
                     </button>
                   )}
+                  <button type="button" style={s.amountBtn} onClick={toggleCustomAmount}>
+                    Custom amount
+                  </button>
                 </div>
+                {upiState.showCustomAmount && (
+                  <div style={s.customAmountBox}>
+                    <div style={s.customAmountLabel}>Test a custom amount</div>
+                    <div style={s.customAmountRow}>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={upiState.customAmountInput}
+                        onChange={e => setUpiState(prev => ({ ...prev, customAmountInput: e.target.value }))}
+                        placeholder="Enter amount"
+                        style={s.customAmountInput}
+                      />
+                      <button type="button" style={s.customAmountBtn} onClick={applyCustomAmount}>
+                        Load UPI
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div style={s.screenshotHint}>
                   Full uses the remaining balance. Half is based on half the original term amount and rounded to the nearest rupee.
                   {showTermWiseOption
@@ -770,6 +832,11 @@ const s = {
   amountChooserSub: { fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: "700" },
   amountButtons: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "12px" },
   amountBtn: { padding: "14px 16px", borderRadius: "18px", border: "none", background: "var(--navy)", color: "var(--gold-light)", fontWeight: "800", cursor: "pointer" },
+  customAmountBox: { display: "flex", flexDirection: "column", gap: "10px", padding: "14px", borderRadius: "16px", background: "rgba(14,107,107,0.06)", border: "1px dashed rgba(14,107,107,0.24)" },
+  customAmountLabel: { fontSize: "0.82rem", fontWeight: "900", color: "var(--navy)", textTransform: "uppercase", letterSpacing: "0.04em" },
+  customAmountRow: { display: "flex", gap: "10px", flexWrap: "wrap" },
+  customAmountInput: { flex: "1 1 180px", minWidth: "180px", padding: "12px 14px", borderRadius: "14px", border: "1px solid var(--border)", fontWeight: "700", color: "var(--navy)" },
+  customAmountBtn: { padding: "12px 16px", borderRadius: "14px", border: "none", background: "var(--gold)", color: "var(--navy)", fontWeight: "900", cursor: "pointer" },
   upiLoading: { padding: "24px", textAlign: "center", color: "var(--navy)", fontWeight: "800" },
   upiError: { background: "var(--danger-bg)", color: "var(--danger-text)", border: "1px solid var(--danger-text)", padding: "12px 16px", borderRadius: "12px", fontWeight: "800" },
   upiInfoGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px" },

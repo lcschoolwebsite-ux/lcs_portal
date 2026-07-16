@@ -12,6 +12,8 @@ const { cloudinary, configureCloudinary } = require("../utils/cloudinary");
 
 const SCHOOL_UPI_ID = process.env.SCHOOL_UPI_ID || "lemhs@kbl";
 const SCHOOL_NAME = process.env.SCHOOL_NAME || "Loreto English Medium High School General Fees Account";
+const SCHOOL_MCC = process.env.SCHOOL_MCC || "0000";
+const SCHOOL_URL = process.env.SCHOOL_URL || "";
 const FEE_SCREENSHOT_FOLDER = "fee-payment-screenshots";
 const INSTALLMENT_MODES = Object.freeze({
   HALF: "HALF",
@@ -87,17 +89,28 @@ const makeUpiReference = (...parts) => {
   return `UPI${digest}`;
 };
 
-const buildUpiLink = ({ amount, note }) => {
+const makeUpiRequestReference = ({ studentId, termId, amount, note }) => {
+  return makeUpiReference(studentId, termId, amount, note, Date.now(), crypto.randomBytes(4).toString("hex"));
+};
+
+const buildUpiLink = ({ amount, note, transactionRef }) => {
   const params = new URLSearchParams({
     pa: SCHOOL_UPI_ID,
+    pn: SCHOOL_NAME,
+    mc: SCHOOL_MCC,
+    tr: transactionRef || makeUpiReference(SCHOOL_UPI_ID, amount, note, Date.now()),
     am: String(Number(amount || 0).toFixed(2)),
     tn: note || "Test Payment",
     cu: "INR"
   });
 
+  if (SCHOOL_URL) {
+    params.set("url", SCHOOL_URL);
+  }
+
   return {
     upiLink: `upi://pay?${params.toString()}`,
-    upiTrReference: ""
+    upiTrReference: params.get("tr") || ""
   };
 };
 
@@ -472,9 +485,16 @@ exports.getUpiLink = async (req, res) => {
     const upiTrReference = isBalancePayment
       ? makeUpiReference(studentId, "BALANCE", String(fee._id || studentId))
       : await persistUpiReferenceIfNeeded(fee, term, studentId);
-    const { upiLink } = buildUpiLink({
+    const transactionRef = makeUpiRequestReference({
+      studentId,
+      termId: termId || "overall",
       amount,
       note: isBalancePayment ? "Balance Payment" : `Fee ${termLabel}`
+    });
+    const { upiLink } = buildUpiLink({
+      amount,
+      note: isBalancePayment ? "Balance Payment" : `Fee ${termLabel}`,
+      transactionRef
     });
 
     const qrCodeDataUrl = await QRCode.toDataURL(upiLink, {
@@ -487,6 +507,8 @@ exports.getUpiLink = async (req, res) => {
       upiLink,
       qrCodeDataUrl,
       upiTrReference,
+      transactionRef,
+      payeeVpa: SCHOOL_UPI_ID,
       amount,
       remainingAmount,
       term: isBalancePayment ? {
