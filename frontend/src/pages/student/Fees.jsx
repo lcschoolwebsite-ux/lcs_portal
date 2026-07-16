@@ -319,6 +319,16 @@ export default function StudentFees() {
     await preparePaymentLink(amount, "custom");
   };
 
+  const copyToClipboard = async (value) => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setUpiState(prev => ({ ...prev, error: "", showCustomAmount: prev.showCustomAmount }));
+    } catch {
+      setUpiState(prev => ({ ...prev, error: "Unable to copy link on this device." }));
+    }
+  };
+
   const submitUpiClaim = async () => {
     const term = upiState.term;
     if (!term?._id) return;
@@ -743,24 +753,27 @@ export default function StudentFees() {
                     </div>
                   </div>
 
-                  {isMobile ? (
-                    <div style={s.mobileUpiActions}>
-                      <a href={upiState.liteUpiLink || upiState.upiLink} style={s.upiDeepLink} onClick={closeUpiModal}>
-                        Open simplified UPI link
-                      </a>
-                      <a href={upiState.upiLink} style={s.upiSecondaryLink} onClick={closeUpiModal}>
-                        Open full UPI link
-                      </a>
-                    </div>
-                  ) : (
-                    <div style={s.qrWrap}>
-                      {upiState.qrCodeDataUrl ? (
-                        <img src={upiState.qrCodeDataUrl} alt="UPI QR code" style={s.qrImg} />
-                      ) : (
-                        <div style={s.qrPlaceholder}>QR code will appear here.</div>
-                      )}
-                    </div>
-                  )}
+                  <div style={s.qrWrap}>
+                    {upiState.qrCodeDataUrl ? (
+                      <img src={upiState.qrCodeDataUrl} alt="UPI QR code" style={s.qrImg} />
+                    ) : (
+                      <div style={s.qrPlaceholder}>QR code will appear here.</div>
+                    )}
+                  </div>
+
+                  <div style={s.mobileUpiActions}>
+                    {isMobile && (
+                      <div style={s.mobileHelpText}>
+                        On mobile, the QR path is usually more reliable than direct app open. Try scanning the QR from another device or a gallery-based scanner.
+                      </div>
+                    )}
+                    <button type="button" style={s.upiSecondaryBtn} onClick={() => copyToClipboard(upiState.liteUpiLink || upiState.upiLink)}>
+                      Copy simplified UPI link
+                    </button>
+                    <button type="button" style={s.upiSecondaryBtn} onClick={() => copyToClipboard(upiState.upiLink)}>
+                      Copy full UPI link
+                    </button>
+                  </div>
 
                   <div style={s.claimBox} className="student-claim-box">
                     <label style={s.claimLabel}>Upload payment screenshot</label>
@@ -855,12 +868,13 @@ const s = {
   qrWrap: { display: "flex", justifyContent: "center", padding: "10px" },
   qrImg: { width: "280px", maxWidth: "100%", height: "auto", borderRadius: "16px", border: "1px solid var(--border)", background: "white" },
   qrPlaceholder: { padding: "40px 20px", borderRadius: "16px", border: "1px dashed var(--border)", color: "var(--text-muted)", fontWeight: "700" },
+  mobileUpiActions: { display: "flex", flexDirection: "column", gap: "10px" },
+  mobileHelpText: { padding: "12px 14px", borderRadius: "14px", background: "rgba(14,107,107,0.06)", border: "1px solid rgba(14,107,107,0.16)", color: "var(--navy)", fontWeight: "700", lineHeight: 1.5 },
+  upiSecondaryBtn: { padding: "14px 16px", borderRadius: "18px", border: "1px solid var(--border)", background: "white", color: "var(--navy)", fontWeight: "800", cursor: "pointer" },
   claimBox: { display: "flex", flexDirection: "column", gap: "10px" },
   claimLabel: { fontSize: "0.75rem", textTransform: "uppercase", color: "var(--gold)", fontWeight: "900" },
   claimInput: { padding: "12px 14px", borderRadius: "12px", border: "1.5px solid var(--border)", fontWeight: "600", color: "var(--navy)", width: "100%", background: "var(--white)" },
   screenshotHint: { fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: "600", lineHeight: 1.5 },
   claimBtn: { padding: "14px 16px", borderRadius: "18px", border: "none", background: "var(--navy)", color: "var(--gold-light)", fontWeight: "800", cursor: "pointer" },
   upiDeepLink: { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "14px 16px", borderRadius: "18px", background: "var(--navy)", color: "var(--gold-light)", fontWeight: "800", textDecoration: "none" }
-  ,mobileUpiActions: { display: "flex", flexDirection: "column", gap: "10px" },
-  upiSecondaryLink: { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "14px 16px", borderRadius: "18px", background: "white", color: "var(--navy)", border: "1px solid var(--border)", fontWeight: "800", textDecoration: "none" }
 };
