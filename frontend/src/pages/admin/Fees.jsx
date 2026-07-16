@@ -3,6 +3,54 @@ import api from "../../api/axios";
 import SectionTitle from "../../components/SectionTitle";
 import Modal from "../../components/Modal";
 import MonthDatePicker from "../../components/MonthDatePicker";
+import { jsPDF } from "jspdf";
+
+const formatReceiptDate = date => {
+  if (!date) return new Date().toLocaleDateString("en-IN");
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return new Date().toLocaleDateString("en-IN");
+  return parsed.toLocaleDateString("en-IN");
+};
+
+const loadReceiptLogo = () => new Promise(resolve => {
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => resolve(img);
+  img.onerror = () => resolve(null);
+  img.src = `${window.location.origin}/logo.png`;
+});
+
+const numberToIndianWords = amount => {
+  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+  const underHundred = n => {
+    if (n < 20) return ones[n];
+    return `${tens[Math.floor(n / 10)]}${n % 10 ? ` ${ones[n % 10]}` : ""}`;
+  };
+
+  const underThousand = n => {
+    const hundred = Math.floor(n / 100);
+    const rest = n % 100;
+    return `${hundred ? `${ones[hundred]} Hundred` : ""}${hundred && rest ? " " : ""}${rest ? underHundred(rest) : ""}`;
+  };
+
+  const rupees = Math.round(Number(amount || 0));
+  if (rupees === 0) return "Zero Rupees Only";
+
+  const crore = Math.floor(rupees / 10000000);
+  const lakh = Math.floor((rupees % 10000000) / 100000);
+  const thousand = Math.floor((rupees % 100000) / 1000);
+  const rest = rupees % 1000;
+
+  const parts = [];
+  if (crore) parts.push(`${underThousand(crore)} Crore`);
+  if (lakh) parts.push(`${underThousand(lakh)} Lakh`);
+  if (thousand) parts.push(`${underThousand(thousand)} Thousand`);
+  if (rest) parts.push(underThousand(rest));
+
+  return `${parts.join(" ")} Rupees Only`;
+};
 
 export default function Fees() {
   const [stats, setStats] = useState(null);
@@ -139,6 +187,145 @@ export default function Fees() {
     } catch (e) {
       alert(e.response?.data?.message || "Failed to delete fee record");
     }
+  };
+
+  const handleViewReceipt = async term => {
+    if (!selectedFee?.student || !term) return;
+    const logo = await loadReceiptLogo();
+    const student = selectedFee.student || {};
+    const classLabel = [student?.class?.name, student?.class?.section].filter(Boolean).join("");
+    const totalPaid = Number(term.paidAmount || 0);
+    const receiptNo = term.receiptNumber || term.razorpayPaymentId || term.razorpayOrderId || `${term.termName || "PAYMENT"}-${term.termNumber || "NA"}`;
+    const receiptDate = term.receiptGeneratedAt || term.paidDate || term.updatedAt || term.claimedAt;
+    const session = selectedFee?.academicYear?.year || "Current Session";
+    const transactionNo = term.razorpayPaymentId || term.razorpayOrderId || term.utrNumber || term.upiTrReference || receiptNo;
+    const concession = Math.max(0, Number(term.amount || 0) - totalPaid);
+
+    const doc = new jsPDF();
+    const left = 12;
+    const top = 10;
+    const width = 186;
+    const right = left + width;
+    const line = y => doc.line(left, y, right, y);
+    const labelValue = (label, value, x, y) => {
+      doc.setFont("times", "bold");
+      doc.text(label, x, y);
+      doc.setFont("times", "normal");
+      doc.text(":", x + 30, y);
+      doc.text(String(value || "N/A"), x + 34, y);
+    };
+
+    doc.setDrawColor(120, 120, 120);
+    doc.setLineWidth(0.25);
+    doc.rect(left, top, width, 246);
+
+    if (logo) doc.addImage(logo, "PNG", 18, 15, 25, 25);
+
+    doc.setFont("times", "bold");
+    doc.setFontSize(20);
+    doc.setTextColor(0, 0, 0);
+    doc.text("Loretto Central School", 105, 21, { align: "center" });
+    doc.setFont("times", "normal");
+    doc.setFontSize(12);
+    doc.text("Love through service", 105, 30, { align: "center" });
+    doc.setFontSize(10);
+    doc.text("Official Fee Payment Receipt", 105, 37, { align: "center" });
+
+    doc.setFillColor(218, 218, 218);
+    doc.rect(left, 46, width, 8, "F");
+    line(46);
+    line(54);
+    doc.setFont("times", "bold");
+    doc.setFontSize(13);
+    doc.text("FEE RECEIPT", 105, 51.8, { align: "center" });
+
+    doc.setFontSize(11);
+    labelValue("Receipt No", receiptNo, 17, 64);
+    labelValue("Adm No", student.satCode, 17, 72);
+    labelValue("Name", student.name, 17, 80);
+    labelValue("Installment", term.termName, 17, 88);
+    labelValue("Date", formatReceiptDate(receiptDate), 132, 64);
+    labelValue("Session", session, 132, 72);
+    labelValue("Class", classLabel || "N/A", 132, 80);
+    labelValue("CounterNo", "LCS-RECEIPT", 132, 88);
+
+    const tableTop = 94;
+    const rowHeight = 9;
+    const columns = [left, 30, 132, 154, 176, right];
+    doc.setFillColor(218, 218, 218);
+    doc.rect(left, tableTop, width, rowHeight, "F");
+    doc.setFont("times", "bold");
+    doc.text("Sl.No", 17, 100);
+    doc.text("Description", 33, 100);
+    doc.text("Due", 147, 100, { align: "right" });
+    doc.text("Con", 169, 100, { align: "right" });
+    doc.text("Paid", 193, 100, { align: "right" });
+
+    const rowY = tableTop + rowHeight;
+    doc.setFont("times", "normal");
+    doc.text("1", 26, rowY + 6, { align: "right" });
+    doc.text(term.termName || "School Fee Payment", 33, rowY + 6);
+    doc.text(String(Number(term.amount || totalPaid).toLocaleString("en-IN")), 147, rowY + 6, { align: "right" });
+    doc.text(String(concession.toLocaleString("en-IN")), 169, rowY + 6, { align: "right" });
+    doc.text(String(totalPaid.toLocaleString("en-IN")), 193, rowY + 6, { align: "right" });
+
+    for (const x of columns) doc.line(x, tableTop, x, rowY + rowHeight);
+    line(tableTop);
+    line(rowY);
+    line(rowY + rowHeight);
+    doc.line(left, rowY + rowHeight, left, 162);
+    doc.line(right, rowY + rowHeight, right, 162);
+
+    doc.setFillColor(218, 218, 218);
+    doc.rect(left, 162, width, 8, "F");
+    line(162);
+    line(170);
+    doc.setFont("times", "bold");
+    doc.setFontSize(13);
+    doc.text("PAY MODE INFORMATION", 105, 167.8, { align: "center" });
+
+    doc.setFont("times", "normal");
+    doc.setFontSize(11);
+    doc.text("Pay Mode", 14, 181);
+    doc.text(term.method || "Manual", 44, 181);
+    doc.text("Date", 123, 181);
+    doc.text(formatReceiptDate(term.paidDate || receiptDate), 196, 181, { align: "right" });
+    doc.text("Transaction No", 14, 190);
+    doc.text(String(transactionNo).slice(0, 32), 44, 190);
+    doc.text("Number", 123, 190);
+    doc.text(receiptNo, 196, 190, { align: "right" });
+    doc.setFillColor(190, 190, 190);
+    doc.rect(left, 193, width, 8, "F");
+    doc.text("Total", 14, 198.5);
+    doc.text(String(totalPaid.toLocaleString("en-IN")), 196, 198.5, { align: "right" });
+
+    line(211);
+    doc.setFont("times", "bold");
+    doc.setFontSize(12);
+    doc.text("Total :", 47, 220);
+    doc.text(String(totalPaid.toLocaleString("en-IN")), 194, 220, { align: "right" });
+    line(224);
+    doc.text("Total in Words:", 15, 233);
+    doc.setFont("times", "normal");
+    doc.text(numberToIndianWords(totalPaid), 50, 233, { maxWidth: 140 });
+    line(239);
+
+    doc.setDrawColor(0, 0, 0);
+    doc.rect(15, 241, 24, 12);
+    doc.setFontSize(8);
+    doc.text("Receipt ID", 27, 246, { align: "center" });
+    doc.text(receiptNo.slice(-10), 27, 250, { align: "center" });
+    doc.setFont("times", "bold");
+    doc.setFontSize(9);
+    doc.text("This is a computer generated Receipt. Does not require signature.", 105, 251, { align: "center" });
+    doc.setFont("times", "bold");
+    doc.setTextColor(110, 110, 110);
+    doc.text("PARENT COPY", 105, 261, { align: "center" });
+
+    const pdfBlob = doc.output("blob");
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    window.open(pdfUrl, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
   };
 
   return (
@@ -318,7 +505,7 @@ export default function Fees() {
                           <td style={s.td}>{term.method}</td>
                           <td style={s.td}>{term.paidDate}</td>
                           <td style={s.td}>
-                            <button style={s.btnReceipt} onClick={() => alert("Receipt View Pending")}>
+                            <button style={s.btnReceipt} onClick={() => handleViewReceipt(term)}>
                               <i className="fa-solid fa-file-invoice"></i> Receipt
                             </button>
                           </td>
