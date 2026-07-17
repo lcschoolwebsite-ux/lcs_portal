@@ -753,27 +753,31 @@ export default function StudentFees() {
                     </div>
                   </div>
 
-                  <div style={s.qrWrap}>
-                    {upiState.qrCodeDataUrl ? (
-                      <img src={upiState.qrCodeDataUrl} alt="UPI QR code" style={s.qrImg} />
-                    ) : (
-                      <div style={s.qrPlaceholder}>QR code will appear here.</div>
-                    )}
-                  </div>
-
-                  <div style={s.mobileUpiActions}>
-                    {isMobile && (
+                  {isMobile ? (
+                    <div style={s.mobileUpiActions}>
                       <div style={s.mobileHelpText}>
-                        On mobile, the QR path is usually more reliable than direct app open. Try scanning the QR from another device or a gallery-based scanner.
+                        Tap below to open your selected UPI app and complete this payment.
                       </div>
-                    )}
-                    <button type="button" style={s.upiSecondaryBtn} onClick={() => copyToClipboard(upiState.liteUpiLink || upiState.upiLink)}>
-                      Copy simplified UPI link
-                    </button>
-                    <button type="button" style={s.upiSecondaryBtn} onClick={() => copyToClipboard(upiState.upiLink)}>
-                      Copy full UPI link
-                    </button>
-                  </div>
+                      <a href={upiState.liteUpiLink || upiState.upiLink} style={s.upiDeepLink}>
+                        Open UPI App
+                      </a>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={s.qrWrap}>
+                        {upiState.qrCodeDataUrl ? (
+                          <img src={upiState.qrCodeDataUrl} alt="UPI QR code" style={s.qrImg} />
+                        ) : (
+                          <div style={s.qrPlaceholder}>QR code will appear here.</div>
+                        )}
+                      </div>
+                      <div style={s.mobileUpiActions}>
+                        <button type="button" style={s.upiSecondaryBtn} onClick={() => copyToClipboard(upiState.liteUpiLink || upiState.upiLink)}>
+                          Copy UPI link
+                        </button>
+                      </div>
+                    </>
+                  )}
 
                   <div style={s.claimBox} className="student-claim-box">
                     <label style={s.claimLabel}>Upload payment screenshot</label>
