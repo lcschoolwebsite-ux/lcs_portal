@@ -758,7 +758,7 @@ export default function StudentFees() {
                       <div style={s.mobileHelpText}>
                         Tap below to open your selected UPI app and complete this payment.
                       </div>
-                      <a href={upiState.liteUpiLink || upiState.upiLink} style={s.upiDeepLink}>
+                      <a href={upiState.upiLink} style={s.upiDeepLink}>
                         Open UPI App
                       </a>
                     </div>

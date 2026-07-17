@@ -12,7 +12,11 @@ const { cloudinary, configureCloudinary } = require("../utils/cloudinary");
 
 const SCHOOL_UPI_ID = process.env.SCHOOL_UPI_ID || "lemhs@kbl";
 const SCHOOL_NAME = process.env.SCHOOL_NAME || "Loreto English Medium High School General Fees Account";
-const SCHOOL_MCC = process.env.SCHOOL_MCC || "0000";
+const configuredSchoolMcc = String(process.env.SCHOOL_MCC || "8211").trim();
+// 8211 is the UPI merchant category for primary and secondary education.
+const SCHOOL_MCC = /^\d{4}$/.test(configuredSchoolMcc) && configuredSchoolMcc !== "0000"
+  ? configuredSchoolMcc
+  : "8211";
 const SCHOOL_URL = process.env.SCHOOL_URL || "";
 const FEE_SCREENSHOT_FOLDER = "fee-payment-screenshots";
 const INSTALLMENT_MODES = Object.freeze({
@@ -100,12 +104,10 @@ const buildUpiLink = ({ amount, note, transactionRef }) => {
     tr: transactionRef || makeUpiReference(SCHOOL_UPI_ID, amount, note, Date.now()),
     am: String(Number(amount || 0).toFixed(2)),
     tn: note || "Test Payment",
-    cu: "INR"
+    cu: "INR",
+    mc: SCHOOL_MCC
   });
 
-  if (SCHOOL_MCC && SCHOOL_MCC !== "0000") {
-    params.set("mc", SCHOOL_MCC);
-  }
   if (SCHOOL_URL) {
     params.set("url", SCHOOL_URL);
   }
@@ -114,17 +116,6 @@ const buildUpiLink = ({ amount, note, transactionRef }) => {
     upiLink: `upi://pay?${params.toString()}`,
     upiTrReference: params.get("tr") || ""
   };
-};
-
-const buildLiteUpiLink = ({ amount, note }) => {
-  const params = new URLSearchParams({
-    pa: SCHOOL_UPI_ID,
-    am: String(Number(amount || 0).toFixed(2)),
-    tn: note || "Test Payment",
-    cu: "INR"
-  });
-
-  return `upi://pay?${params.toString()}`;
 };
 
 const getTermConfirmedAmount = term => {
@@ -509,10 +500,8 @@ exports.getUpiLink = async (req, res) => {
       note: isBalancePayment ? "Balance Payment" : `Fee ${termLabel}`,
       transactionRef
     });
-    const liteUpiLink = buildLiteUpiLink({
-      amount,
-      note: isBalancePayment ? "Balance Payment" : `Fee ${termLabel}`
-    });
+    // A UPI merchant intent must carry the same merchant fields on mobile as QR.
+    const liteUpiLink = upiLink;
 
     const qrCodeDataUrl = await QRCode.toDataURL(upiLink, {
       errorCorrectionLevel: "M",
