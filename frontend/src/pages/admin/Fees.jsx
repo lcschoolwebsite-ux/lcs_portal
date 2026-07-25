@@ -20,6 +20,60 @@ const loadReceiptLogo = () => new Promise(resolve => {
   img.src = `${window.location.origin}/logo.png`;
 });
 
+const buildFeeRows = (students = [], fees = []) => {
+  const feeByStudentId = new Map();
+
+  fees.forEach(fee => {
+    const studentId = String(fee?.student?._id || fee?.student || "");
+    if (studentId) {
+      feeByStudentId.set(studentId, {
+        ...fee,
+        hasFeeRecord: true
+      });
+    }
+  });
+
+  const studentIds = new Set();
+  const rows = students.map(student => {
+    const studentId = String(student?._id || "");
+    studentIds.add(studentId);
+
+    const fee = feeByStudentId.get(studentId);
+    if (fee) {
+      return fee;
+    }
+
+    return {
+      _id: `student:${studentId}`,
+      student,
+      academicYear: student?.academicYear || null,
+      feeStructure: null,
+      totalAnnualFee: 0,
+      totalPaid: 0,
+      totalDue: 0,
+      overallStatus: "No Fee Record",
+      terms: [],
+      hasFeeRecord: false
+    };
+  });
+
+  fees.forEach(fee => {
+    const studentId = String(fee?.student?._id || fee?.student || "");
+    if (studentId && !studentIds.has(studentId)) {
+      rows.push({
+        ...fee,
+        hasFeeRecord: true
+      });
+    }
+  });
+
+  return rows.sort((a, b) => {
+    const left = String(a?.student?.name || "").toLowerCase();
+    const right = String(b?.student?.name || "").toLowerCase();
+    return left.localeCompare(right);
+  });
+};
+
 const numberToIndianWords = amount => {
   const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
   const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
@@ -124,16 +178,28 @@ export default function Fees() {
         status: filters.status
       });
 
-      const [feeRes, statsRes] = await Promise.all([
+      const [studentRes, feeRes, statsRes] = await Promise.all([
+        api.get("/students", {
+          params: {
+            academicYear: activeAY,
+            classId: filters.classId,
+            search: filters.search
+          }
+        }),
         api.get(`/student-fees?${params.toString()}`),
         api.get(`/student-fees/stats?academicYear=${activeAY}&classId=${filters.classId}`)
       ]);
 
-      setStudents(feeRes.data);
+      const mergedRows = buildFeeRows(studentRes.data || [], feeRes.data || []);
+      const visibleRows = filters.status
+        ? mergedRows.filter(row => row.overallStatus === filters.status)
+        : mergedRows;
+
+      setStudents(visibleRows);
       setStats(statsRes.data);
       setSelectedFee(current => {
         if (!current) return null;
-        return feeRes.data.find(fee => fee._id === current._id) || null;
+        return visibleRows.find(fee => fee._id === current._id) || null;
       });
     } catch (e) {
       setError(e.response?.data?.message || "Unable to load fee records.");
@@ -151,6 +217,7 @@ export default function Fees() {
   }, [activeAY, filters.classId, filters.status, filters.search]);
 
   const handleRecordPayment = async () => {
+    if (!selectedFee?.hasFeeRecord) return alert("Select a student with an existing fee record first.");
     if (!paymentForm.amount || paymentForm.amount <= 0) return alert("Enter valid amount");
     if (Number(paymentForm.amount) > Number(selectedFee?.totalDue || 0)) return alert("Payment cannot be more than total due");
     try {
@@ -173,6 +240,7 @@ export default function Fees() {
   };
 
   const handleDeleteSelectedFee = async () => {
+    if (!selectedFee?.hasFeeRecord) return;
     if (!selectedFee) return;
     const confirmDelete = window.confirm(
       `This will permanently delete the fee record for ${selectedFee.student?.name || "this student"}. Continue?`
@@ -434,10 +502,10 @@ export default function Fees() {
                 </div>
               </div>
               <div style={s.feeShortInfo}>
-                <div style={{...s.statusBadge, ...(fee.overallStatus === "Paid" ? s.bgPaid : fee.overallStatus === "Partial" ? s.bgPartial : s.bgUnpaid)}}>
+                <div style={{...s.statusBadge, ...(fee.overallStatus === "Paid" ? s.bgPaid : fee.overallStatus === "Partial" ? s.bgPartial : fee.overallStatus === "No Fee Record" ? s.bgMissing : s.bgUnpaid)}}>
                   {fee.overallStatus}
                 </div>
-                <div style={s.dueText}>Due: ₹{Number(fee.totalDue || 0).toLocaleString()}</div>
+                <div style={s.dueText}>{fee.hasFeeRecord ? `Due: ₹${Number(fee.totalDue || 0).toLocaleString()}` : "Fee record not created"}</div>
               </div>
             </div>
           ))}
@@ -452,14 +520,14 @@ export default function Fees() {
                   <div style={{flex: 1}}>
                     <h2 style={s.detailName}>{selectedFee.student?.name}</h2>
                     <p style={s.detailSub}>{selectedFee.student?.satCode} • {formatClass(selectedFee.student?.class)}</p>
-                    <div style={{...s.statusBadge, ...(selectedFee.overallStatus === "Paid" ? s.bgPaid : selectedFee.overallStatus === "Partial" ? s.bgPartial : s.bgUnpaid)}}>
+                    <div style={{...s.statusBadge, ...(selectedFee.overallStatus === "Paid" ? s.bgPaid : selectedFee.overallStatus === "Partial" ? s.bgPartial : selectedFee.overallStatus === "No Fee Record" ? s.bgMissing : s.bgUnpaid)}}>
                       Overall Status: {selectedFee.overallStatus}
                     </div>
                   </div>
-                  <button onClick={() => setIsPaymentModalOpen(true)} style={s.btnMainRecord} disabled={selectedFee.totalDue <= 0}>
+                  <button onClick={() => setIsPaymentModalOpen(true)} style={{ ...s.btnMainRecord, ...((!selectedFee.hasFeeRecord || selectedFee.totalDue <= 0) ? s.btnDisabled : {}) }} disabled={!selectedFee.hasFeeRecord || selectedFee.totalDue <= 0}>
                     <i className="fa-solid fa-plus-circle"></i> Record Payment
                   </button>
-                  <button onClick={handleDeleteSelectedFee} style={s.btnDeleteRecord}>
+                  <button onClick={handleDeleteSelectedFee} style={{ ...s.btnDeleteRecord, ...(!selectedFee.hasFeeRecord ? s.btnDisabled : {}) }} disabled={!selectedFee.hasFeeRecord}>
                     <i className="fa-solid fa-trash-can"></i> Permanent Delete
                   </button>
                </div>
@@ -480,7 +548,7 @@ export default function Fees() {
                </div>
 
                <div style={s.sectionTitle}>Transaction History</div>
-               {selectedFee.terms.filter(t => Number(t.paidAmount || 0) > 0).length > 0 ? (
+               {selectedFee.hasFeeRecord && selectedFee.terms.filter(t => Number(t.paidAmount || 0) > 0).length > 0 ? (
                  <table style={s.table}>
                     <thead>
                       <tr>
@@ -513,10 +581,15 @@ export default function Fees() {
                       ))}
                     </tbody>
                  </table>
-               ) : (
+               ) : selectedFee.hasFeeRecord ? (
                  <div style={s.noPlanBox}>
                     <i className="fa-solid fa-receipt" style={{fontSize: '2rem', marginBottom: '10px'}}></i>
                     <p>No payments recorded yet.</p>
+                 </div>
+               ) : (
+                 <div style={s.noPlanBox}>
+                    <i className="fa-solid fa-user-slash" style={{fontSize: '2rem', marginBottom: '10px'}}></i>
+                    <p>No fee record exists for this student yet.</p>
                  </div>
                )}
             </div>
@@ -533,7 +606,7 @@ export default function Fees() {
         footer={
           <div style={{display: 'flex', gap: '12px', width: '100%'}}>
             <button onClick={() => setIsPaymentModalOpen(false)} style={s.btnCancel}>Cancel</button>
-            <button onClick={handleRecordPayment} style={s.btnConfirm}>Confirm & Save</button>
+            <button onClick={handleRecordPayment} style={{ ...s.btnConfirm, ...(!selectedFee?.hasFeeRecord ? s.btnDisabled : {}) }} disabled={!selectedFee?.hasFeeRecord}>Confirm & Save</button>
           </div>
         }
       >
@@ -604,6 +677,7 @@ const s = {
   bgPaid: { background: "#dcfce7", color: "#166534" },
   bgPartial: { background: "#fef3c7", color: "#92400e" },
   bgUnpaid: { background: "#fee2e2", color: "#991b1b" },
+  bgMissing: { background: "#e5e7eb", color: "#374151" },
   dueText: { fontSize: "0.8rem", color: "#ef4444", fontWeight: "700", marginTop: "4px" },
   detailPanel: { background: "var(--white)", borderRadius: "16px", border: "1px solid var(--border)", overflowY: "auto", padding: "32px" },
   detailHeader: { display: "flex", gap: "24px", alignItems: "center", paddingBottom: "24px", borderBottom: "1px solid var(--border)", marginBottom: "24px" },
@@ -627,5 +701,6 @@ const s = {
   formGroup: { display: "flex", flexDirection: "column", gap: "8px" },
   fLabel: { fontSize: "0.75rem", fontWeight: "800", color: "var(--gold)", textTransform: "uppercase" },
   btnCancel: { padding: "12px 24px", borderRadius: "30px", border: "none", background: "var(--light-bg)", color: "var(--text-muted)", fontWeight: "700", cursor: "pointer" },
-  btnConfirm: { flex: 1, padding: "12px 24px", borderRadius: "30px", border: "none", background: "linear-gradient(135deg, var(--gold), var(--gold-light))", color: "var(--navy-dark)", fontWeight: "800", cursor: "pointer" }
+  btnConfirm: { flex: 1, padding: "12px 24px", borderRadius: "30px", border: "none", background: "linear-gradient(135deg, var(--gold), var(--gold-light))", color: "var(--navy-dark)", fontWeight: "800", cursor: "pointer" },
+  btnDisabled: { opacity: 0.55, cursor: "not-allowed" }
 };
