@@ -3,7 +3,7 @@ const multer = require("multer");
 const auth = require("../middleware/auth");
 const roles = require("../middleware/roles");
 const {
-  getAll, getStats, getByStudentId, getUpiLink, claimUpiPayment, getPendingUpiVerifications, verifyUpiPayment, recordPayment, 
+  getAll, getStats, syncMissing, getByStudentId, getUpiLink, claimUpiPayment, getPendingUpiVerifications, verifyUpiPayment, recordPayment, 
   createRazorpayOrder, verifyRazorpay,
   createFlexibleOrder, verifyFlexiblePayment, recordFlexiblePayment, remove
 } = require("../controllers/studentFeeController");
@@ -31,6 +31,7 @@ const handleClaimScreenshotUpload = (req, res, next) => {
 };
 
 router.get("/", auth, roles("admin", "teacher"), getAll);
+router.post("/sync-missing", auth, roles("admin", "teacher"), syncMissing);
 router.get("/stats", auth, roles("admin", "teacher"), getStats);
 router.get("/student/:studentId", auth, roles("admin", "teacher", "student"), getByStudentId);
 router.get("/:studentId/upi-link/:termId", auth, roles("admin", "teacher", "student"), getUpiLink);

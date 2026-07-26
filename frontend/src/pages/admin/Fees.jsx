@@ -171,6 +171,16 @@ export default function Fees() {
     setLoading(true);
     setError("");
     try {
+      try {
+        await api.post("/student-fees/sync-missing", {
+          academicYear: activeAY,
+          classId: filters.classId,
+          search: filters.search
+        });
+      } catch (syncError) {
+        console.warn("Fee sync skipped", syncError?.response?.data?.message || syncError.message);
+      }
+
       const params = new URLSearchParams({
         academicYear: activeAY,
         classId: filters.classId,

@@ -2,12 +2,14 @@ const StudentFee = require("../models/StudentFee");
 const Student = require("../models/Student");
 const Class = require("../models/Class");
 const AcademicYear = require("../models/AcademicYear");
+const FeeStructure = require("../models/FeeStructure");
 const QRCode = require("qrcode");
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const { notifyStudentById } = require("../utils/pushNotification");
 const { getIO } = require("../utils/socket");
 const { canTeachersManageFees } = require("./settingController");
+const { escapeRegex, normalizeSearch } = require("../utils/query");
 const { cloudinary, configureCloudinary } = require("../utils/cloudinary");
 
 const SCHOOL_UPI_ID = process.env.SCHOOL_UPI_ID || "lemhs@kbl";
@@ -76,6 +78,120 @@ const getStudentIdsForClasses = async classIds => {
   if (!Array.isArray(classIds) || classIds.length === 0) return [];
   const students = await Student.find({ class: { $in: classIds } }).select("_id").lean();
   return students.map(student => student._id);
+};
+
+const getStudentScopeFilter = async ({ req, academicYear, classId, search }) => {
+  const filter = { isActive: true };
+  if (academicYear) filter.academicYear = academicYear;
+
+  const teacherAccess = await ensureTeacherFeeAccess(req);
+  if (req.user.role === "teacher") {
+    if (classId) {
+      if (!teacherAccess.classIds.includes(toObjectIdString(classId))) {
+        const error = new Error("Access denied for this class");
+        error.status = 403;
+        throw error;
+      }
+      filter.class = classId;
+    } else if (teacherAccess.classIds.length > 0) {
+      filter.class = { $in: teacherAccess.classIds };
+    } else {
+      return { filter: null, teacherAccess };
+    }
+  } else if (classId) {
+    filter.class = classId;
+  }
+
+  const normalizedSearch = normalizeSearch(search);
+  if (normalizedSearch) {
+    const regex = { $regex: escapeRegex(normalizedSearch), $options: "i" };
+    filter.$or = [
+      { name: regex },
+      { satCode: regex },
+      { penCode: regex },
+      { mobile: regex },
+      { alternateMobile: regex }
+    ];
+  }
+
+  return { filter, teacherAccess };
+};
+
+const syncMissingFeeRecords = async ({ req, academicYear, classId, search }) => {
+  const targetAcademicYear = academicYear || (await AcademicYear.findOne({ isActive: true }).select("_id").lean())?._id;
+  if (!targetAcademicYear) {
+    return { created: 0, skipped: 0 };
+  }
+
+  const { filter } = await getStudentScopeFilter({
+    req,
+    academicYear: targetAcademicYear,
+    classId,
+    search
+  });
+
+  if (!filter) {
+    return { created: 0, skipped: 0 };
+  }
+
+  const students = await Student.find(filter).select("_id class academicYear").lean();
+  if (students.length === 0) {
+    return { created: 0, skipped: 0 };
+  }
+
+  const uniqueClassIds = [...new Set(students.map(student => toObjectIdString(student.class)).filter(Boolean))];
+  const feeStructures = await FeeStructure.find({
+    academicYear: targetAcademicYear,
+    class: { $in: uniqueClassIds }
+  }).select("_id class totalAnnualFee").lean();
+
+  const feeStructureByClassId = new Map(
+    feeStructures.map(structure => [toObjectIdString(structure.class), structure])
+  );
+
+  const existingFees = await StudentFee.find({
+    academicYear: targetAcademicYear,
+    student: { $in: students.map(student => student._id) }
+  }).select("student").lean();
+  const existingStudentIds = new Set(existingFees.map(fee => toObjectIdString(fee.student)));
+
+  let created = 0;
+  let skipped = 0;
+
+  for (const student of students) {
+    const studentId = toObjectIdString(student._id);
+    if (existingStudentIds.has(studentId)) {
+      skipped += 1;
+      continue;
+    }
+
+    const structure = feeStructureByClassId.get(toObjectIdString(student.class));
+    if (!structure) {
+      skipped += 1;
+      continue;
+    }
+
+    await StudentFee.findOneAndUpdate(
+      { student: student._id, academicYear: targetAcademicYear },
+      {
+        $setOnInsert: {
+          student: student._id,
+          academicYear: targetAcademicYear,
+          feeStructure: structure._id,
+          totalAnnualFee: structure.totalAnnualFee,
+          totalDue: structure.totalAnnualFee,
+          totalPaid: 0,
+          overallStatus: "Unpaid",
+          terms: []
+        }
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    created += 1;
+  }
+
+  return { created, skipped };
 };
 
 const normalizeLabel = value =>
@@ -405,6 +521,21 @@ exports.getStats = async (req, res) => {
     res.json(stats);
   } catch (e) {
     res.status(500).json({ message: e.message });
+  }
+};
+
+exports.syncMissing = async (req, res) => {
+  try {
+    const result = await syncMissingFeeRecords({
+      req,
+      academicYear: req.body?.academicYear || req.query?.academicYear,
+      classId: req.body?.classId || req.query?.classId,
+      search: req.body?.search || req.query?.search
+    });
+
+    res.json(result);
+  } catch (e) {
+    res.status(e.status || 500).json({ message: e.message });
   }
 };
 
