@@ -1,6 +1,7 @@
 const Mark = require("../models/Mark");
 const Student = require("../models/Student");
 const Exam = require("../models/Exam");
+const ExamType = require("../models/ExamType");
 const { notifyClassStudents, notifyStudentById } = require("../utils/pushNotification");
 const { canViewExam, canEditExam } = require("../utils/teacherAccess");
 
@@ -143,7 +144,13 @@ exports.getReportCard = async (req, res) => {
     if (academicYear) query.academicYear = academicYear;
 
     const marks = await Mark.find(query).populate("exam").populate("subject", "name");
-    const filteredMarks = examType ? marks.filter(m => m.exam?.examType === examType) : marks;
+    let filteredMarks = examType ? marks.filter(m => m.exam?.examType === examType) : marks;
+
+    if (req.user?.role === "student") {
+      const publishedTypes = await ExamType.find({ isPublished: true }).select("name").lean();
+      const publishedTypeNames = new Set(publishedTypes.map(type => type.name));
+      filteredMarks = filteredMarks.filter(mark => publishedTypeNames.has(mark.exam?.examType));
+    }
 
     const subjects = filteredMarks.reduce((acc, m) => {
       const sName = m.subject?.name || "Subject";
