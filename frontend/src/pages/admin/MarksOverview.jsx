@@ -744,7 +744,8 @@ const s = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    minWidth: "860px"
+    minWidth: "860px",
+    color: "var(--text)"
   },
   emptyCell: {
     textAlign: "center",
