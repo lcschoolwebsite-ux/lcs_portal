@@ -134,16 +134,12 @@ export default function Marks() {
     }, {})
   ), [rows]);
 
-  const visibleTypeNames = useMemo(() => {
-    return typeNames.filter(type => (rowsByType[type]?.length || 0) > 0);
-  }, [rowsByType, typeNames]);
-
   const isCategoryLaunched = !activeType || typeNames.includes(activeType);
   const activeRows = useMemo(() => (
     isCategoryLaunched ? (rowsByType[activeType] || []) : []
   ), [isCategoryLaunched, rowsByType, activeType]);
   const activeTypeInfo = activeType ? typeDetails[activeType] : null;
-  const selectedTypeValue = visibleTypeNames.includes(activeType) ? activeType : "";
+  const selectedTypeValue = activeType || "";
 
   const summary = useMemo(() => {
     const totalScored = activeRows.reduce((sum, row) => sum + Number(row.marksObtained || 0), 0);
@@ -324,7 +320,7 @@ export default function Marks() {
             <h2 style={s.selectorTitle}>Select Exam Type</h2>
             <p style={s.selectorSub}>Choose an exam type to view the report card.</p>
           </div>
-          <span style={s.categoryCount}>{visibleTypeNames.length} categories</span>
+          <span style={s.categoryCount}>{typeNames.length} categories</span>
         </div>
 
         <select
@@ -335,7 +331,7 @@ export default function Marks() {
           aria-label="Select exam type"
         >
           <option value="">Choose an exam type</option>
-          {visibleTypeNames.map(type => {
+          {typeNames.map(type => {
             const count = rowsByType[type]?.length || 0;
             const typeInfo = typeDetails[type];
             const publishedAt = typeInfo?.isPublished
@@ -364,7 +360,7 @@ export default function Marks() {
       {error && <div style={s.error}>{error}</div>}
 
       {!activeType ? (
-        visibleTypeNames.length ? (
+        typeNames.length ? (
           <div style={s.promptCard}>
             <i className="fa-solid fa-arrow-up" style={s.promptIcon}></i>
             <div style={s.promptTitle}>Choose an exam type</div>
