@@ -30,14 +30,19 @@ const Homework = lazy(() => import("../pages/admin/Homework"));
 
 const menuGroups = [
   {
-    title: "System",
+    title: "System Settings",
     items: [
       { label: "Dashboard", path: "/admin", icon: "fa-solid fa-gauge-high" },
       { label: "Analytics", path: "/admin/analytics", icon: "fa-solid fa-chart-simple" },
-      { label: "Attendance", path: "/admin/attendance", icon: "fa-solid fa-calendar-check" },
-      { label: "Holidays", path: "/admin/holidays", icon: "fa-solid fa-umbrella-beach" },
       { label: "Academic Years", path: "/admin/academic-years", icon: "fa-solid fa-calendar-days" },
       { label: "Student Logins", path: "/admin/student-logins", icon: "fa-solid fa-right-to-bracket" },
+    ],
+  },
+  {
+    title: "Attendance",
+    items: [
+      { label: "Attendance", path: "/admin/attendance", icon: "fa-solid fa-calendar-check" },
+      { label: "Holidays", path: "/admin/holidays", icon: "fa-solid fa-umbrella-beach" },
     ],
   },
   {
@@ -45,6 +50,7 @@ const menuGroups = [
     items: [
       { label: "Classes", path: "/admin/classes", icon: "fa-solid fa-chalkboard" },
       { label: "Subjects", path: "/admin/subjects", icon: "fa-solid fa-book" },
+      { label: "Homework", path: "/admin/homework", icon: "fa-solid fa-book-open" },
     ],
   },
   {
@@ -59,9 +65,13 @@ const menuGroups = [
       items: [
         { label: "Exams", path: "/admin/exams", icon: "fa-solid fa-file-invoice" },
         { label: "Marks Overview", path: "/admin/marks-overview", icon: "fa-solid fa-chart-column" },
+      ],
+    },
+    {
+      title: "Notices",
+      items: [
         { label: "Announcements", path: "/admin/announcements", icon: "fa-solid fa-bullhorn" },
         { label: "Student Notices", path: "/admin/student-notices", icon: "fa-solid fa-paper-plane" },
-        { label: "Homework", path: "/admin/homework", icon: "fa-solid fa-book-open" },
       ],
     },
     {
@@ -85,6 +95,34 @@ export default function AdminLayout() {
     location.pathname.startsWith("/admin/fees") ||
     location.pathname.startsWith("/admin/pending-upi-verifications")
   );
+  const [noticesOpen, setNoticesOpen] = useState(() =>
+    location.pathname.startsWith("/admin/announcements") ||
+    location.pathname.startsWith("/admin/student-notices")
+  );
+  const [evaluationOpen, setEvaluationOpen] = useState(() =>
+    location.pathname.startsWith("/admin/exams") ||
+    location.pathname.startsWith("/admin/marks-overview") ||
+    location.pathname.startsWith("/admin/homework")
+  );
+  const [attendanceOpen, setAttendanceOpen] = useState(() =>
+    location.pathname.startsWith("/admin/attendance") ||
+    location.pathname.startsWith("/admin/holidays")
+  );
+  const [systemSettingsOpen, setSystemSettingsOpen] = useState(() =>
+    location.pathname === "/admin" ||
+    location.pathname.startsWith("/admin/analytics") ||
+    location.pathname.startsWith("/admin/academic-years") ||
+    location.pathname.startsWith("/admin/student-logins")
+  );
+  const [usersOpen, setUsersOpen] = useState(() =>
+    location.pathname.startsWith("/admin/teachers") ||
+    location.pathname.startsWith("/admin/students")
+  );
+  const [organizationOpen, setOrganizationOpen] = useState(() =>
+    location.pathname.startsWith("/admin/classes") ||
+    location.pathname.startsWith("/admin/subjects") ||
+    location.pathname.startsWith("/admin/homework")
+  );
 
   const handleLogout = () => {
     logout();
@@ -95,6 +133,34 @@ export default function AdminLayout() {
     location.pathname.startsWith("/admin/fees") ||
     location.pathname.startsWith("/admin/pending-upi-verifications");
   const accountsExpanded = accountsOpen || accountsRouteActive;
+  const noticesRouteActive =
+    location.pathname.startsWith("/admin/announcements") ||
+    location.pathname.startsWith("/admin/student-notices");
+  const noticesExpanded = noticesOpen || noticesRouteActive;
+  const evaluationRouteActive =
+    location.pathname.startsWith("/admin/exams") ||
+    location.pathname.startsWith("/admin/marks-overview") ||
+    location.pathname.startsWith("/admin/homework");
+  const evaluationExpanded = evaluationOpen || evaluationRouteActive;
+  const attendanceRouteActive =
+    location.pathname.startsWith("/admin/attendance") ||
+    location.pathname.startsWith("/admin/holidays");
+  const attendanceExpanded = attendanceOpen || attendanceRouteActive;
+  const systemSettingsRouteActive =
+    location.pathname === "/admin" ||
+    location.pathname.startsWith("/admin/analytics") ||
+    location.pathname.startsWith("/admin/academic-years") ||
+    location.pathname.startsWith("/admin/student-logins");
+  const systemSettingsExpanded = systemSettingsOpen || systemSettingsRouteActive;
+  const usersRouteActive =
+    location.pathname.startsWith("/admin/teachers") ||
+    location.pathname.startsWith("/admin/students");
+  const usersExpanded = usersOpen || usersRouteActive;
+  const organizationRouteActive =
+    location.pathname.startsWith("/admin/classes") ||
+    location.pathname.startsWith("/admin/subjects") ||
+    location.pathname.startsWith("/admin/homework");
+  const organizationExpanded = organizationOpen || organizationRouteActive;
 
   const currentPathLabel = menuGroups
     .flatMap(g => g.items)
@@ -142,25 +208,78 @@ export default function AdminLayout() {
         <nav style={s.nav}>
           {menuGroups.map((group, idx) => (
             <div key={idx} style={s.navGroup}>
-              {group.title === "Accounts" ? (
+              {["System Settings", "Users", "Organization", "Accounts", "Notices", "Evaluation", "Attendance"].includes(group.title) ? (
                 <button
                   type="button"
                   style={s.groupToggle}
-                  onClick={() => setAccountsOpen(prev => !prev)}
-                  aria-expanded={accountsExpanded}
-                  aria-controls="admin-accounts-menu"
+                  onClick={() => {
+                    if (group.title === "Accounts") setAccountsOpen(prev => !prev);
+                    if (group.title === "Notices") setNoticesOpen(prev => !prev);
+                    if (group.title === "Evaluation") setEvaluationOpen(prev => !prev);
+                    if (group.title === "Attendance") setAttendanceOpen(prev => !prev);
+                    if (group.title === "System Settings") setSystemSettingsOpen(prev => !prev);
+                    if (group.title === "Users") setUsersOpen(prev => !prev);
+                    if (group.title === "Organization") setOrganizationOpen(prev => !prev);
+                  }}
+                  aria-expanded={
+                    group.title === "System Settings"
+                      ? systemSettingsExpanded
+                      : group.title === "Users"
+                        ? usersExpanded
+                        : group.title === "Organization"
+                          ? organizationExpanded
+                        : group.title === "Accounts"
+                          ? accountsExpanded
+                          : group.title === "Notices"
+                            ? noticesExpanded
+                            : group.title === "Evaluation"
+                              ? evaluationExpanded
+                              : attendanceExpanded
+                  }
+                  aria-controls={`admin-${group.title.toLowerCase()}-menu`}
                 >
-                  <span style={s.groupLabel}>Accounts</span>
+                  <span style={s.groupLabel}>{group.title}</span>
                   <i
-                    className={`fa-solid fa-chevron-${accountsExpanded ? "up" : "down"}`}
+                    className={`fa-solid fa-chevron-${(
+                      group.title === "System Settings"
+                        ? systemSettingsExpanded
+                        : group.title === "Users"
+                          ? usersExpanded
+                          : group.title === "Organization"
+                            ? organizationExpanded
+                          : group.title === "Accounts"
+                            ? accountsExpanded
+                            : group.title === "Notices"
+                              ? noticesExpanded
+                              : group.title === "Evaluation"
+                                ? evaluationExpanded
+                                : attendanceExpanded
+                    ) ? "up" : "down"}`}
                     aria-hidden="true"
                   />
                 </button>
               ) : (
                 <div style={s.groupLabel}>{group.title}</div>
               )}
-              {group.title !== "Accounts" || accountsExpanded ? (
-                <div id={group.title === "Accounts" ? "admin-accounts-menu" : undefined}>
+              {(!["System Settings", "Users", "Organization", "Accounts", "Notices", "Evaluation", "Attendance"].includes(group.title)) ||
+              (group.title === "System Settings"
+                ? systemSettingsExpanded
+                : group.title === "Users"
+                  ? usersExpanded
+                  : group.title === "Organization"
+                    ? organizationExpanded
+                  : group.title === "Accounts"
+                    ? accountsExpanded
+                    : group.title === "Notices"
+                      ? noticesExpanded
+                      : group.title === "Evaluation"
+                        ? evaluationExpanded
+                        : attendanceExpanded) ? (
+                <div
+                  id={["System Settings", "Users", "Organization", "Accounts", "Notices", "Evaluation", "Attendance"].includes(group.title)
+                    ? `admin-${group.title.toLowerCase()}-menu`
+                    : undefined}
+                >
                   {group.items.map((item) => {
                     const isActive = location.pathname === item.path;
                     return (
