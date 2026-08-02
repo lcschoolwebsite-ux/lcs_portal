@@ -80,11 +80,21 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const { academicYearLabel } = useActiveAcademicYear();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [accountsOpen, setAccountsOpen] = useState(() =>
+    location.pathname.startsWith("/admin/fee-structure") ||
+    location.pathname.startsWith("/admin/fees") ||
+    location.pathname.startsWith("/admin/pending-upi-verifications")
+  );
 
   const handleLogout = () => {
     logout();
     navigate("/");
   };
+  const accountsRouteActive =
+    location.pathname.startsWith("/admin/fee-structure") ||
+    location.pathname.startsWith("/admin/fees") ||
+    location.pathname.startsWith("/admin/pending-upi-verifications");
+  const accountsExpanded = accountsOpen || accountsRouteActive;
 
   const currentPathLabel = menuGroups
     .flatMap(g => g.items)
@@ -132,20 +142,40 @@ export default function AdminLayout() {
         <nav style={s.nav}>
           {menuGroups.map((group, idx) => (
             <div key={idx} style={s.navGroup}>
-              <div style={s.groupLabel}>{group.title}</div>
-              {group.items.map((item) => {
-                const isActive = location.pathname === item.path;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    style={{ ...s.navItem, ...(isActive ? s.activeNavItem : {}) }}
-                  >
-                    <i className={item.icon} style={s.navIcon}></i>
-                    {item.label}
-                  </Link>
-                );
-              })}
+              {group.title === "Accounts" ? (
+                <button
+                  type="button"
+                  style={s.groupToggle}
+                  onClick={() => setAccountsOpen(prev => !prev)}
+                  aria-expanded={accountsExpanded}
+                  aria-controls="admin-accounts-menu"
+                >
+                  <span style={s.groupLabel}>Accounts</span>
+                  <i
+                    className={`fa-solid fa-chevron-${accountsExpanded ? "up" : "down"}`}
+                    aria-hidden="true"
+                  />
+                </button>
+              ) : (
+                <div style={s.groupLabel}>{group.title}</div>
+              )}
+              {group.title !== "Accounts" || accountsExpanded ? (
+                <div id={group.title === "Accounts" ? "admin-accounts-menu" : undefined}>
+                  {group.items.map((item) => {
+                    const isActive = location.pathname === item.path;
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        style={{ ...s.navItem, ...(isActive ? s.activeNavItem : {}) }}
+                      >
+                        <i className={item.icon} style={s.navIcon}></i>
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
           ))}
         </nav>
@@ -236,6 +266,7 @@ const s = {
   nav: { flex: 1, padding: "0 16px", overflowY: "auto" },
   navGroup: { marginBottom: "24px" },
   groupLabel: { color: "var(--gold)", fontSize: "0.65rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "12px", paddingLeft: "12px", opacity: 0.7 },
+  groupToggle: { width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: "transparent", border: "none", padding: 0, cursor: "pointer", color: "var(--gold)" },
   navItem: { display: "flex", alignItems: "center", padding: "12px", borderRadius: "10px", color: "rgba(255,255,255,0.7)", fontSize: "0.9rem", fontWeight: "600", transition: "var(--transition)", marginBottom: "4px" },
   activeNavItem: { background: "linear-gradient(135deg, var(--navy), var(--navy-dark))", color: "var(--white)", borderLeft: "3px solid var(--gold)" },
   navIcon: { width: "24px", fontSize: "1rem" },
