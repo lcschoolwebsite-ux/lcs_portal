@@ -306,7 +306,7 @@ const s = {
   notifyStatus: { margin: "16px 0 0", fontSize: "0.95rem", color: "var(--navy)", lineHeight: 1.5, fontWeight: "600", background: "rgba(255,255,255,0.8)", padding: "12px 18px", borderRadius: "16px", border: "1px solid rgba(200,150,12,0.2)" },
 
   quickGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "24px", marginBottom: "36px" },
-  quickCard: { background: "linear-gradient(135deg, #051a1a 0%, #094f4f 100%)", borderRadius: "20px", padding: "28px", color: "var(--white)", cursor: "pointer", position: "relative", overflow: "hidden", transition: "all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)", boxShadow: "0 12px 36px rgba(9,79,79,0.35)", textDecoration: "none", minHeight: "180px", boxSizing: "border-box", border: "1px solid rgba(200,150,12,0.2)" },
+  quickCard: { display: "block", background: "linear-gradient(135deg, #051a1a 0%, #094f4f 100%)", borderRadius: "20px", padding: "28px", color: "var(--white)", cursor: "pointer", position: "relative", overflow: "hidden", transition: "all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)", boxShadow: "0 12px 36px rgba(9,79,79,0.35)", textDecoration: "none", minHeight: "180px", boxSizing: "border-box", border: "1px solid rgba(200,150,12,0.2)" },
   quickCardTop: { position: "absolute", top: 0, left: 0, right: 0, height: "6px", background: "var(--gold)", borderRadius: "20px 20px 0 0" },
   quickIcon: { fontSize: "2.5rem", color: "var(--gold)", marginBottom: "20px", filter: "drop-shadow(0 4px 8px rgba(200,150,12,0.4))" },
   quickTitle: { fontFamily: "var(--font-heading)", fontSize: "1.5rem", margin: "0 0 8px 0", color: "var(--white)", fontWeight: "700", letterSpacing: "-0.01em" },
