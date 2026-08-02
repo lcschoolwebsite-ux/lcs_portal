@@ -70,9 +70,9 @@ export default function Dashboard() {
   });
 
   const actIconClass = (type) => {
-    if (type === "fee") return "admin-activity-icon fee";
-    if (type === "attendance") return "admin-activity-icon attendance";
-    return "admin-activity-icon other";
+    if (type === "fee") return "portal-activity-icon fee";
+    if (type === "attendance") return "portal-activity-icon attendance";
+    return "portal-activity-icon other";
   };
 
   const actEmoji = (type) => {
@@ -82,13 +82,13 @@ export default function Dashboard() {
   };
 
   return (
-    <div style={s.page} className="admin-dashboard-page">
+    <div style={s.page} className="portal-dashboard-page">
 
       {/* ── HERO BANNER ──────────────────────────────────────────── */}
-      <div style={s.heroBanner} className="admin-hero-banner">
+      <div style={s.heroBanner} className="portal-hero-banner">
         {/* Decorative orbs */}
-        <div className="admin-hero-orb-1" />
-        <div className="admin-hero-orb-2" />
+        <div className="portal-hero-orb-1" />
+        <div className="portal-hero-orb-2" />
 
         <div style={s.heroLeft}>
           {/* Date pill */}
@@ -102,7 +102,7 @@ export default function Dashboard() {
           <p style={s.heroSub}>AY {academicYearLabel} &nbsp;·&nbsp; Loretto Central School</p>
         </div>
 
-        <div style={s.heroActions} className="admin-hero-actions">
+        <div style={s.heroActions} className="portal-hero-actions">
           {[
             { icon: "fa-user-plus", label: "Add Student", path: "/admin/students?action=add", color: "rgba(200,150,12,0.2)" },
             { icon: "fa-clipboard-user", label: "Attendance", path: "/admin/attendance", color: "rgba(16,185,129,0.2)" },
@@ -121,7 +121,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── STAT CARDS ───────────────────────────────────────────── */}
-      <div style={s.grid4} className="admin-dashboard-grid">
+      <div style={s.grid4} className="portal-dashboard-grid">
         {[
           { title: "Total Students", value: stats.students, icon: <i className="fa-solid fa-user-graduate" />, color: "navy", trend: "+12%" },
           { title: "Total Teachers", value: stats.teachers, icon: <i className="fa-solid fa-chalkboard-user" />, color: "gold", trend: "+2%" },
@@ -130,7 +130,7 @@ export default function Dashboard() {
         ].map((card, i) => (
           <div
             key={card.title}
-            className="admin-stat-in"
+            className="portal-stat-in"
             style={{ animationDelay: `${i * 0.07}s` }}
           >
             <StatCard {...card} />
@@ -139,7 +139,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── CHARTS ROW ───────────────────────────────────────────── */}
-      <div style={s.grid2} className="admin-dashboard-split">
+      <div style={s.grid2} className="portal-dashboard-split">
 
         {/* Students by Class — Bar Chart */}
         <div style={s.card}>
@@ -272,7 +272,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── ACTIVITY + EXAMS ─────────────────────────────────────── */}
-      <div style={s.grid2} className="admin-dashboard-split">
+      <div style={s.grid2} className="portal-dashboard-split">
 
         {/* Recent Activity — Timeline */}
         <div style={s.card}>
@@ -283,10 +283,10 @@ export default function Dashboard() {
               <p style={{ margin: 0, fontSize: "0.85rem" }}>No recent activity</p>
             </div>
           ) : (
-            <div className="admin-activity-timeline" style={{ marginTop: "16px" }}>
+            <div className="portal-activity-timeline" style={{ marginTop: "16px" }}>
               {stats.recentActivity.map((act) => (
-                <div key={act.id} className="admin-activity-item">
-                  <div className="admin-activity-dot" />
+                <div key={act.id} className="portal-activity-item">
+                  <div className="portal-activity-dot" />
                   <div className={actIconClass(act.type)}>{actEmoji(act.type)}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={s.actMsg}>{act.msg}</p>
@@ -310,7 +310,7 @@ export default function Dashboard() {
             <div style={s.examScroll}>
               {stats.upcomingExams.map((exam) => (
                 <div key={exam.id} style={s.examCard}>
-                  <div className="admin-exam-card-accent" />
+                  <div className="portal-exam-card-accent" />
                   <h4 style={s.examTitle}>{exam.title}</h4>
                   <div style={s.examTags}>
                     <span style={{ ...s.examTag, background: "rgba(14,107,107,0.1)", color: "var(--navy)" }}>

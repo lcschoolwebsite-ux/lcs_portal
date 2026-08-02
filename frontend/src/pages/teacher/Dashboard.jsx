@@ -189,11 +189,13 @@ export default function Dashboard() {
   };
 
   return (
-    <div style={s.page} className="teacher-dashboard">
+    <div style={s.page} className="portal-dashboard-page">
       {/* Welcome Hero Banner */}
-        <div style={s.heroBanner} className="teacher-hero-banner">
-        <div>
-          <h1 style={s.heroTitle}>Welcome back, Teacher {user?.name?.split(' ')[0] || ""}</h1>
+        <div style={s.heroBanner} className="portal-hero-banner">
+        <div className="portal-hero-orb-1" />
+        <div className="portal-hero-orb-2" />
+        <div style={{ position: "relative", zIndex: 1 }}>
+          <h1 style={s.heroTitle}>Welcome back, Teacher {user?.name?.split(' ')[0] || ""} 👋</h1>
           <p style={s.heroSub}>Manage your classes and student progress.</p>
         </div>
       </div>
@@ -201,22 +203,32 @@ export default function Dashboard() {
       {loading && <div style={s.loading}>Loading your teacher dashboard...</div>}
 
       {/* 4 Stat Cards */}
-      <div style={s.grid4} className="teacher-dashboard-grid">
-        <StatCard title="My Students" value={stats.myStudents} icon={<i className="fa-solid fa-users"></i>} color="navy" />
-        <StatCard title="Assigned Subjects" value={stats.assignedSubjects} icon={<i className="fa-solid fa-book-open"></i>} color="gold" />
-        <StatCard
-          title="Today's Attendance"
-          value={!attendanceClasses.length ? "Restricted" : stats.attendanceMarked ? "Marked" : "Pending"}
-          icon={<i className="fa-solid fa-clipboard-user"></i>}
-          color={!attendanceClasses.length ? "navy" : stats.attendanceMarked ? "teal" : "gold"}
-          trend={!attendanceClasses.length ? "Class Teacher Only" : stats.attendanceMarked ? "Done" : "Action Required"}
-          trendLabel=""
-        />
-        <StatCard title="Active Exams" value={stats.pendingMarks} icon={<i className="fa-solid fa-pen-to-square"></i>} color="red" />
-        <StatCard title="Announcements" value={stats.announcements} icon={<i className="fa-solid fa-bullhorn"></i>} color="navy" />
+      <div style={s.grid4} className="portal-dashboard-grid">
+        <div className="portal-stat-in" style={{ animationDelay: "0s" }}>
+          <StatCard title="My Students" value={stats.myStudents} icon={<i className="fa-solid fa-users"></i>} color="navy" />
+        </div>
+        <div className="portal-stat-in" style={{ animationDelay: "0.07s" }}>
+          <StatCard title="Assigned Subjects" value={stats.assignedSubjects} icon={<i className="fa-solid fa-book-open"></i>} color="gold" />
+        </div>
+        <div className="portal-stat-in" style={{ animationDelay: "0.14s" }}>
+          <StatCard
+            title="Today's Attendance"
+            value={!attendanceClasses.length ? "Restricted" : stats.attendanceMarked ? "Marked" : "Pending"}
+            icon={<i className="fa-solid fa-clipboard-user"></i>}
+            color={!attendanceClasses.length ? "navy" : stats.attendanceMarked ? "teal" : "gold"}
+            trend={!attendanceClasses.length ? "Class Teacher Only" : stats.attendanceMarked ? "Done" : "Action Required"}
+            trendLabel=""
+          />
+        </div>
+        <div className="portal-stat-in" style={{ animationDelay: "0.21s" }}>
+          <StatCard title="Active Exams" value={stats.pendingMarks} icon={<i className="fa-solid fa-pen-to-square"></i>} color="red" />
+        </div>
+        <div className="portal-stat-in" style={{ animationDelay: "0.28s" }}>
+          <StatCard title="Announcements" value={stats.announcements} icon={<i className="fa-solid fa-bullhorn"></i>} color="navy" />
+        </div>
       </div>
 
-      <div style={s.grid2} className="teacher-quick-grid">
+      <div style={s.grid2} className="portal-dashboard-split">
         {/* My Classes Panel */}
         <div style={s.card}>
           <SectionTitle title="My Classes" />

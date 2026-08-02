@@ -1671,7 +1671,7 @@ table {
    ===================================================== */
 
 /* Sidebar nav item base */
-.admin-nav-link {
+.portal-nav-link {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1687,20 +1687,20 @@ table {
   letter-spacing: 0.01em;
 }
 
-.admin-nav-link:hover {
+.portal-nav-link:hover {
   background: rgba(255,255,255,0.08);
   color: #fff;
   transform: translateX(3px);
 }
 
-.admin-nav-link.active {
+.portal-nav-link.active {
   background: linear-gradient(135deg, rgba(200,150,12,0.22), rgba(200,150,12,0.08));
   color: #fff;
   font-weight: 700;
   box-shadow: inset 0 0 0 1px rgba(200,150,12,0.28);
 }
 
-.admin-nav-link.active::before {
+.portal-nav-link.active::before {
   content: '';
   position: absolute;
   left: 0;
@@ -1712,7 +1712,7 @@ table {
   box-shadow: 0 0 10px rgba(200,150,12,0.65);
 }
 
-.admin-nav-icon {
+.portal-nav-icon {
   width: 20px;
   text-align: center;
   font-size: 0.88rem;
@@ -1720,13 +1720,13 @@ table {
   opacity: 0.8;
 }
 
-.admin-nav-link.active .admin-nav-icon {
+.portal-nav-link.active .portal-nav-icon {
   opacity: 1;
   color: var(--gold-light);
 }
 
 /* Group toggle button */
-.admin-group-btn {
+.portal-group-btn {
   width: 100%;
   display: flex;
   align-items: center;
@@ -1742,29 +1742,29 @@ table {
   margin-bottom: 4px;
 }
 
-.admin-group-btn:hover {
+.portal-group-btn:hover {
   background: rgba(255,255,255,0.05);
   color: rgba(255,255,255,0.65);
 }
 
-.admin-group-label {
+.portal-group-label {
   font-size: 0.67rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
 
-.admin-group-chevron {
+.portal-group-chevron {
   font-size: 0.6rem;
   transition: transform 0.22s ease;
 }
 
-.admin-group-chevron.open {
+.portal-group-chevron.open {
   transform: rotate(180deg);
 }
 
 /* Sidebar profile card at bottom */
-.admin-sidebar-profile {
+.portal-sidebar-profile {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1775,11 +1775,11 @@ table {
   transition: all 0.2s ease;
 }
 
-.admin-sidebar-profile:hover {
+.portal-sidebar-profile:hover {
   background: rgba(255,255,255,0.09);
 }
 
-.admin-sidebar-avatar {
+.portal-sidebar-avatar {
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -1794,12 +1794,12 @@ table {
   box-shadow: 0 0 0 2px rgba(200,150,12,0.35);
 }
 
-.admin-sidebar-info {
+.portal-sidebar-info {
   flex: 1;
   min-width: 0;
 }
 
-.admin-sidebar-name {
+.portal-sidebar-name {
   color: #fff;
   font-size: 0.8rem;
   font-weight: 700;
@@ -1808,7 +1808,7 @@ table {
   text-overflow: ellipsis;
 }
 
-.admin-sidebar-role {
+.portal-sidebar-role {
   color: rgba(255,255,255,0.4);
   font-size: 0.65rem;
   font-weight: 600;
@@ -1817,7 +1817,7 @@ table {
   margin-top: 1px;
 }
 
-.admin-sidebar-logout-btn {
+.portal-sidebar-logout-btn {
   width: 30px;
   height: 30px;
   border-radius: 8px;
@@ -1833,7 +1833,7 @@ table {
   font-size: 0.78rem;
 }
 
-.admin-sidebar-logout-btn:hover {
+.portal-sidebar-logout-btn:hover {
   background: rgba(197,34,31,0.28);
   color: #ff6b6b;
   border-color: rgba(197,34,31,0.45);
@@ -1841,7 +1841,7 @@ table {
 }
 
 /* Admin header glass */
-.admin-header-glass {
+.portal-header-glass {
   background: rgba(255,255,255,0.93) !important;
   backdrop-filter: blur(14px) saturate(1.3) !important;
   -webkit-backdrop-filter: blur(14px) saturate(1.3) !important;
@@ -1849,12 +1849,12 @@ table {
   box-shadow: 0 2px 18px rgba(14,107,107,0.07) !important;
 }
 
-.admin-page-title-accent {
+.portal-page-title-accent {
   position: relative;
   display: inline-block;
 }
 
-.admin-page-title-accent::after {
+.portal-page-title-accent::after {
   content: '';
   position: absolute;
   bottom: -2px;
@@ -1866,7 +1866,7 @@ table {
 }
 
 /* AY badge shimmer */
-.admin-ay-badge {
+.portal-ay-badge {
   background: linear-gradient(90deg, var(--gold-pale), #fffbe6, var(--gold-pale));
   background-size: 200% auto;
   animation: shimmer 3.5s linear infinite;
@@ -1881,19 +1881,19 @@ table {
 }
 
 /* Header avatar ring */
-.admin-header-avatar-wrap {
+.portal-header-avatar-wrap {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.admin-header-avatar-wrap:hover .admin-avatar-ring {
-  animation: adminAvatarRing 1.2s ease-out infinite;
+.portal-header-avatar-wrap:hover .portal-avatar-ring {
+  animation: portalAvatarRing 1.2s ease-out infinite;
   opacity: 1;
 }
 
-.admin-avatar-ring {
+.portal-avatar-ring {
   position: absolute;
   inset: -3px;
   border-radius: 50%;
@@ -1903,12 +1903,12 @@ table {
 }
 
 /* Stat card animation */
-.admin-stat-in {
-  animation: adminStatIn 0.48s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+.portal-stat-in {
+  animation: portalStatIn 0.48s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 /* Dashboard hero orb decorations */
-.admin-hero-orb-1 {
+.portal-hero-orb-1 {
   position: absolute;
   width: 220px;
   height: 220px;
@@ -1920,7 +1920,7 @@ table {
   animation: floatOrbA 6s ease-in-out infinite;
 }
 
-.admin-hero-orb-2 {
+.portal-hero-orb-2 {
   position: absolute;
   width: 160px;
   height: 160px;
@@ -1933,12 +1933,12 @@ table {
 }
 
 /* Activity timeline */
-.admin-activity-timeline {
+.portal-activity-timeline {
   position: relative;
   padding-left: 20px;
 }
 
-.admin-activity-timeline::before {
+.portal-activity-timeline::before {
   content: '';
   position: absolute;
   left: 4px;
@@ -1949,7 +1949,7 @@ table {
   border-radius: 2px;
 }
 
-.admin-activity-item {
+.portal-activity-item {
   position: relative;
   display: flex;
   align-items: center;
@@ -1957,11 +1957,11 @@ table {
   padding: 11px 0;
 }
 
-.admin-activity-item:not(:last-child) {
+.portal-activity-item:not(:last-child) {
   border-bottom: 1px solid rgba(14,107,107,0.07);
 }
 
-.admin-activity-dot {
+.portal-activity-dot {
   position: absolute;
   left: -19px;
   top: 50%;
@@ -1975,7 +1975,7 @@ table {
   flex-shrink: 0;
 }
 
-.admin-activity-icon {
+.portal-activity-icon {
   width: 38px;
   height: 38px;
   border-radius: 10px;
@@ -1987,12 +1987,12 @@ table {
   background: rgba(14,107,107,0.07);
 }
 
-.admin-activity-icon.fee { background: rgba(200,150,12,0.1); }
-.admin-activity-icon.attendance { background: rgba(16,185,129,0.1); }
-.admin-activity-icon.other { background: rgba(14,107,107,0.08); }
+.portal-activity-icon.fee { background: rgba(200,150,12,0.1); }
+.portal-activity-icon.attendance { background: rgba(16,185,129,0.1); }
+.portal-activity-icon.other { background: rgba(14,107,107,0.08); }
 
 /* Sidebar nav group items — smooth slide */
-.admin-group-items {
+.portal-group-items {
   overflow: hidden;
   transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1),
               opacity 0.2s ease;
@@ -2000,31 +2000,31 @@ table {
   opacity: 0;
 }
 
-.admin-group-items.expanded {
+.portal-group-items.expanded {
   opacity: 1;
 }
 
 /* Sidebar divider */
-.admin-sidebar-divider {
+.portal-sidebar-divider {
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(200,150,12,0.18), transparent);
   margin: 6px 0 10px;
 }
 
 /* Keyframes */
-@keyframes adminAvatarRing {
+@keyframes portalAvatarRing {
   0% { box-shadow: 0 0 0 0 rgba(200,150,12,0.55); }
   70% { box-shadow: 0 0 0 8px rgba(200,150,12,0); }
   100% { box-shadow: 0 0 0 0 rgba(200,150,12,0); }
 }
 
-@keyframes adminStatIn {
+@keyframes portalStatIn {
   0% { opacity: 0; transform: translateY(22px) scale(0.96); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* Exam card top accent */
-.admin-exam-card-accent {
+.portal-exam-card-accent {
   position: absolute;
   top: 0;
   left: 0;

@@ -183,14 +183,14 @@ export default function AdminLayout() {
                 {/* Group toggle */}
                 <button
                   type="button"
-                  className="admin-group-btn"
+                  className="portal-group-btn"
                   onClick={() => toggleGroup(group.title)}
                   aria-expanded={isExpanded}
                   aria-controls={`admin-group-${group.title}`}
                 >
-                  <span className="admin-group-label">{group.title}</span>
+                  <span className="portal-group-label">{group.title}</span>
                   <i
-                    className={`fa-solid fa-chevron-down admin-group-chevron${isExpanded ? " open" : ""}`}
+                    className={`fa-solid fa-chevron-down portal-group-chevron${isExpanded ? " open" : ""}`}
                     aria-hidden="true"
                   />
                 </button>
@@ -198,7 +198,7 @@ export default function AdminLayout() {
                 {/* Group items — animated slide */}
                 <div
                   id={`admin-group-${group.title}`}
-                  className={`admin-group-items${isExpanded ? " expanded" : ""}`}
+                  className={`portal-group-items${isExpanded ? " expanded" : ""}`}
                   style={{ maxHeight }}
                 >
                   {group.items.map((item) => {
@@ -209,9 +209,9 @@ export default function AdminLayout() {
                       <Link
                         key={item.path}
                         to={item.path}
-                        className={`admin-nav-link${isActive ? " active" : ""}`}
+                        className={`portal-nav-link${isActive ? " active" : ""}`}
                       >
-                        <i className={`${item.icon} admin-nav-icon`} aria-hidden="true" />
+                        <i className={`${item.icon} portal-nav-icon`} aria-hidden="true" />
                         {item.label}
                       </Link>
                     );
@@ -224,17 +224,17 @@ export default function AdminLayout() {
 
         {/* Bottom profile card */}
         <div style={s.sidebarBottom}>
-          <div className="admin-sidebar-divider" />
-          <div className="admin-sidebar-profile">
-            <div className="admin-sidebar-avatar">
+          <div className="portal-sidebar-divider" />
+          <div className="portal-sidebar-profile">
+            <div className="portal-sidebar-avatar">
               {user?.name?.[0]?.toUpperCase() || "A"}
             </div>
-            <div className="admin-sidebar-info">
-              <div className="admin-sidebar-name">{user?.name || "Administrator"}</div>
-              <div className="admin-sidebar-role">Admin</div>
+            <div className="portal-sidebar-info">
+              <div className="portal-sidebar-name">{user?.name || "Administrator"}</div>
+              <div className="portal-sidebar-role">Admin</div>
             </div>
             <button
-              className="admin-sidebar-logout-btn"
+              className="portal-sidebar-logout-btn"
               onClick={handleLogout}
               title="Logout"
               aria-label="Logout"
@@ -248,11 +248,11 @@ export default function AdminLayout() {
       {/* ── MAIN ── */}
       <main style={s.main} className="admin-main">
         {/* Header */}
-        <header style={s.header} className="admin-header admin-header-glass">
+        <header style={s.header} className="admin-header portal-header-glass">
           <div style={s.headerBrand}>
             <img src="/logo.png" alt="LCS Portal" style={s.headerLogo} />
             <div style={s.headerLeft}>
-              <h2 style={s.pageTitle} className="admin-page-title-accent">
+              <h2 style={s.pageTitle} className="portal-page-title-accent">
                 {currentPathLabel}
               </h2>
               <div style={s.breadcrumb}>
@@ -263,7 +263,7 @@ export default function AdminLayout() {
           </div>
 
           <div style={s.headerRight} className="admin-header-right">
-            <span className="admin-ay-badge">
+            <span className="portal-ay-badge">
               <i className="fa-solid fa-calendar-check" style={{ marginRight: "6px" }} aria-hidden="true" />
               AY {academicYearLabel}
             </span>
@@ -278,11 +278,11 @@ export default function AdminLayout() {
               <i className="fa-solid fa-right-from-bracket" aria-hidden="true" />
             </button>
 
-            <div className="admin-header-avatar-wrap">
+            <div className="portal-header-avatar-wrap">
               <div style={s.adminAvatar}>
                 {user?.name?.[0]?.toUpperCase() || "A"}
               </div>
-              <div className="admin-avatar-ring" />
+              <div className="portal-avatar-ring" />
             </div>
           </div>
         </header>

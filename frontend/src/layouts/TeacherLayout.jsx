@@ -50,7 +50,7 @@ const MENU_GROUPS = [
   }
 ];
 
-const SIDEBAR_WIDTH = "200px";
+const SIDEBAR_WIDTH = "260px";
 
 export default function TeacherLayout() {
   const { user, logout } = useAuth();
@@ -112,20 +112,16 @@ export default function TeacherLayout() {
       {/* Sidebar */}
       <aside style={s.sidebar} className="teacher-sidebar">
         <div style={s.logoArea}>
-          <img src="/logo.png" alt="Logo" style={s.logoImg} />
+          <div style={s.logoIconWrap}>
+            <img src="/logo.png" alt="Logo" style={s.logoImg} />
+          </div>
           <div>
             <h1 style={s.schoolName}>LCS Portal</h1>
             <p style={s.tagline}>love through service</p>
           </div>
         </div>
 
-        <div style={s.userInfoCard}>
-          <div style={s.avatar}>{user?.name?.[0] || 'T'}</div>
-          <div>
-            <div style={s.userName}>{user?.name || 'Teacher'}</div>
-            <div style={s.userRole}>TEACHER PORTAL</div>
-          </div>
-        </div>
+        <div className="portal-sidebar-divider" style={{ margin: '0 16px 12px' }} />
 
         <nav style={s.nav} className="teacher-nav">
           {MENU_GROUPS.map((group, gIdx) => (
@@ -138,8 +134,12 @@ export default function TeacherLayout() {
               }).map(item => {
                 const isActive = item.path === "/teacher" ? location.pathname === item.path : location.pathname.startsWith(item.path);
                 return (
-                  <Link key={item.path} to={item.path} style={{...s.navItem, ...(isActive ? s.activeNav : {})}}>
-                    <i className={item.icon} style={s.icon}></i>
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`portal-nav-link ${isActive ? "active" : ""}`}
+                  >
+                    <i className={`${item.icon} portal-nav-icon`} aria-hidden="true" />
                     {item.label}
                   </Link>
                 );
@@ -149,21 +149,29 @@ export default function TeacherLayout() {
         </nav>
 
         <div style={s.sidebarBottom}>
-          <div style={s.yearBadge}>AY {academicYearLabel}</div>
-          <button onClick={handleLogout} style={s.logoutBtn}>
-            <i className="fa-solid fa-arrow-right-from-bracket" style={{marginRight: '8px'}}></i> Logout
-          </button>
+          <div className="portal-sidebar-profile">
+            <div className="portal-sidebar-avatar">{user?.name?.[0] || "T"}</div>
+            <div className="portal-sidebar-info">
+              <div className="portal-sidebar-name">{user?.name || "Teacher"}</div>
+              <div className="portal-sidebar-role">TEACHER PORTAL</div>
+            </div>
+            <button className="portal-sidebar-logout-btn" onClick={handleLogout} title="Logout">
+              <i className="fa-solid fa-power-off" />
+            </button>
+          </div>
         </div>
       </aside>
 
       {/* Main Content */}
       <main style={s.main} className="teacher-main">
         {/* Top Header */}
-        <header style={s.header} className="teacher-header">
+        <header style={s.header} className="teacher-header portal-header-glass">
           <div style={s.headerBrand} className="teacher-header-brand">
             <img src="/logo.png" alt="LCS Portal" style={s.headerLogo} className="teacher-header-logo" />
             <div>
-              <h2 style={s.pageTitle} className="teacher-page-title">{currentPathLabel}</h2>
+              <h2 style={s.pageTitle} className="teacher-page-title">
+                <span className="portal-page-title-accent">{currentPathLabel}</span>
+              </h2>
               <div style={s.breadcrumb} className="teacher-breadcrumb">Loretto Central School</div>
             </div>
           </div>
@@ -172,11 +180,15 @@ export default function TeacherLayout() {
             <button style={s.bellBtn}>
               <i className="fa-regular fa-bell"></i>
             </button>
-            <div style={s.headerYearPill} className="teacher-header-year-pill">{academicYearLabel}</div>
+            <div className="portal-ay-badge">AY {academicYearLabel}</div>
+            
             <button onClick={handleLogout} style={s.logoutBtn} className="teacher-logout-btn">
               <i className="fa-solid fa-right-from-bracket"></i>
             </button>
-            <div style={s.headerAvatar} className="teacher-header-avatar">{user?.name?.[0] || 'T'}</div>
+            <div className="portal-header-avatar-wrap" onClick={() => navigate("/teacher/profile")}>
+              <div className="portal-avatar-ring"></div>
+              <div style={s.headerAvatar}>{user?.name?.[0] || 'T'}</div>
+            </div>
           </div>
         </header>
 
@@ -209,9 +221,31 @@ const s = {
   container: { display: "flex", width: "100%", minHeight: "100vh", background: "var(--light-bg)" },
   
   /* Sidebar Styles */
-  sidebar: { width: SIDEBAR_WIDTH, background: "linear-gradient(180deg, #051a1a 0%, #094f4f 100%)", borderRight: "1px solid rgba(200,150,12,0.2)", display: "flex", flexDirection: "column", position: "fixed", top: 0, bottom: 0, zIndex: 100 },
-  logoArea: { display: "flex", alignItems: "center", gap: "10px", padding: "16px 16px 14px" },
-  logoImg: { width: "42px", height: "42px", objectFit: "contain" },
+  sidebar: {
+    width: SIDEBAR_WIDTH,
+    background: "linear-gradient(180deg, #051a1a 0%, #0a3b3b 50%, #083434 100%)",
+    borderRight: "1px solid rgba(200,150,12,0.2)",
+    display: "flex",
+    flexDirection: "column",
+    position: "fixed",
+    top: 0,
+    bottom: 0,
+    zIndex: 100,
+    boxShadow: "1px 0 20px rgba(0,0,0,0.1)",
+  },
+  logoArea: { display: "flex", alignItems: "center", gap: "12px", padding: "20px 16px 14px" },
+  logoIconWrap: {
+    width: "42px",
+    height: "42px",
+    background: "rgba(255,255,255,0.06)",
+    borderRadius: "10px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    border: "1px solid rgba(200,150,12,0.3)",
+    boxShadow: "inset 0 0 10px rgba(255,255,255,0.05)",
+  },
+  logoImg: { width: "26px", height: "26px", objectFit: "contain" },
   schoolName: { fontFamily: "var(--font-heading)", color: "var(--white)", fontSize: "1.1rem", margin: 0, lineHeight: 1.2 },
   tagline: { color: "var(--gold-light)", fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.05em", margin: "4px 0 0 0" },
 
@@ -222,36 +256,26 @@ const s = {
   mobileSchoolName: { fontFamily: "var(--font-heading)", color: "var(--white)", fontSize: "1rem", lineHeight: 1.1, margin: 0 },
   mobileUserLine: { color: "var(--gold-light)", fontSize: "0.72rem", fontWeight: "800", margin: "3px 0 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "240px" },
   mobileLogout: { width: "36px", height: "36px", borderRadius: "50%", background: "rgba(255,255,255,0.08)", color: "var(--gold-light)", border: "1px solid rgba(200,150,12,0.35)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" },
-  userInfoCard: { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,150,12,0.2)", borderRadius: "12px", padding: "10px", margin: "0 16px 16px 16px", display: "flex", alignItems: "center", gap: "10px" },
-  avatar: { width: "34px", height: "34px", borderRadius: "50%", background: "linear-gradient(135deg, var(--gold), var(--gold-light))", color: "var(--navy-dark)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "1rem" },
-  userName: { color: "var(--white)", fontSize: "0.85rem", fontFamily: "var(--font-body)", fontWeight: "700" },
-  userRole: { color: "var(--gold-pale)", fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: "2px", fontWeight: "600" },
   
   nav: { flex: 1, overflowY: "auto", padding: "0 12px" },
   navGroup: { marginBottom: "14px" },
-  groupLabel: { color: "var(--gold)", fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.12em", opacity: 0.7, marginBottom: "6px", paddingLeft: "8px", fontWeight: "700" },
-  navItem: { display: "flex", alignItems: "center", padding: "8px 10px", borderRadius: "9px", color: "rgba(255,255,255,0.65)", textDecoration: "none", fontSize: "0.82rem", fontWeight: "600", transition: "var(--transition)", marginBottom: "4px" },
-  activeNav: { background: "linear-gradient(135deg, var(--navy), var(--navy-dark))", color: "var(--white)", boxShadow: "0 4px 14px rgba(14,107,107,0.4)", borderLeft: "3px solid var(--gold-light)" },
-  icon: { width: "18px", textAlign: "center", marginRight: "8px", fontSize: "0.95rem" },
+  groupLabel: { color: "var(--gold)", fontSize: "0.58rem", textTransform: "uppercase", letterSpacing: "0.12em", opacity: 0.7, marginBottom: "8px", paddingLeft: "14px", fontWeight: "700" },
   
-  sidebarBottom: { padding: "16px", borderTop: "1px solid rgba(255,255,255,0.05)" },
-  yearBadge: { border: "1px solid var(--gold)", color: "var(--gold)", borderRadius: "20px", padding: "4px 12px", fontSize: "0.7rem", fontWeight: "700", textAlign: "center", marginBottom: "16px", background: "rgba(200,150,12,0.1)" },
-  logoutBtn: { width: "100%", padding: "10px", background: "transparent", border: "1px solid transparent", color: "rgba(255,255,255,0.6)", borderRadius: "8px", fontWeight: "600", cursor: "pointer", transition: "var(--transition)", fontSize: "0.85rem" },
+  sidebarBottom: { padding: "16px" },
 
   /* Header Styles */
   main: { flex: 1, marginLeft: SIDEBAR_WIDTH, display: "flex", flexDirection: "column", minWidth: 0 },
-  header: { height: "56px", background: "var(--white)", borderBottom: "2px solid var(--gold)", boxShadow: "0 2px 10px rgba(0,0,0,0.08)", padding: "0 24px", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 90 },
+  header: { height: "60px", padding: "0 28px", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 90 },
   headerBrand: { display: "flex", alignItems: "center", gap: "12px" },
-  headerLogo: { width: "34px", height: "34px", objectFit: "contain", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))" },
-  pageTitle: { fontFamily: "var(--font-heading)", color: "var(--navy)", fontSize: "1.15rem", margin: 0, fontWeight: "700" },
-  breadcrumb: { color: "var(--text-muted)", fontSize: "0.78rem", marginTop: "2px" },
+  headerLogo: { width: "34px", height: "34px", objectFit: "contain", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))", borderRadius: "10px" },
+  pageTitle: { fontFamily: "var(--font-heading)", color: "var(--navy-dark)", fontSize: "1.2rem", margin: 0, fontWeight: "800" },
+  breadcrumb: { color: "var(--text-muted)", fontSize: "0.75rem", marginTop: "4px", fontWeight: 600, letterSpacing: "0.02em" },
   
-  headerRight: { display: "flex", alignItems: "center", gap: "14px" },
-  bellBtn: { background: "none", border: "none", fontSize: "1.05rem", color: "var(--navy)", position: "relative", cursor: "pointer" },
+  headerRight: { display: "flex", alignItems: "center", gap: "16px" },
+  bellBtn: { background: "none", border: "none", fontSize: "1.1rem", color: "var(--navy)", position: "relative", cursor: "pointer", transition: "color 0.2s" },
   logoutBtn: { display: "none", background: "none", border: "none", fontSize: "1.05rem", color: "var(--navy)", cursor: "pointer" },
-  headerYearPill: { background: "var(--navy)", color: "var(--gold)", padding: "3px 10px", borderRadius: "20px", fontSize: "0.7rem", fontWeight: "800" },
-  headerAvatar: { width: "32px", height: "32px", borderRadius: "50%", background: "linear-gradient(135deg, var(--gold), var(--gold-light))", color: "var(--navy-dark)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", cursor: "pointer", fontSize: "0.85rem" },
+  headerAvatar: { width: "34px", height: "34px", borderRadius: "50%", background: "linear-gradient(135deg, var(--gold), var(--gold-light))", color: "var(--navy-dark)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", cursor: "pointer", fontSize: "0.85rem", boxShadow: "0 2px 8px rgba(200,150,12,0.3)" },
 
-  content: { padding: "24px 28px", flex: 1 },
+  content: { padding: "32px 36px", flex: 1 },
   loading: { padding: "40px", textAlign: "center", color: "var(--text-muted)", fontSize: "1.2rem" }
 };

@@ -199,33 +199,48 @@ export default function Dashboard() {
   }, [user]);
 
   return (
-    <div style={s.page} className="student-dashboard-page">
-      {loading && <div style={s.loading}>Loading dashboard...</div>}
-      <div style={s.grid2} className="student-dashboard-grid">
-        <div style={s.polaroidCard} className="student-polaroid-card">
-          <div style={s.polaroidTop}></div>
-          <div style={s.avatarWrap}>
+    <div style={s.page} className="portal-dashboard-page">
+      {/* Welcome Hero Banner */}
+      <div style={s.heroBanner} className="portal-hero-banner">
+        <div className="portal-hero-orb-1" />
+        <div className="portal-hero-orb-2" />
+        <div style={{ position: "relative", zIndex: 1, display: "flex", gap: "24px", alignItems: "center" }}>
+          <div style={s.heroAvatarWrap}>
             {user?.photoUrl ? (
-              <img src={user.photoUrl} alt={user?.name || "Student"} style={s.studentPhoto} />
+              <img src={user.photoUrl} alt={user?.name || "Student"} style={s.heroAvatar} />
             ) : (
-              <div style={s.studentAvatar}>{user?.name?.charAt(0) || "S"}</div>
+              <div style={s.heroAvatarPlaceholder}>{user?.name?.charAt(0) || "S"}</div>
             )}
           </div>
-          <h2 style={s.studentName}>{user?.name || "Student"}</h2>
-          <p style={s.studentDetails}>Class {user?.class?.name || "-"}{user?.class?.section || ""} • {user?.satCode || "-"}</p>
-          <div style={s.badgeRow} className="student-badge-row">
-            <span style={s.yearPill}>{academicYear}</span>
-            <span style={feeStatus === "Due" ? s.badgeDue : s.badgePaid}>
-              {feeStatus === "Due" ? `Fees Due: ${formatCurrency(fee.totalDue)}` : feeStatus === "Paid" ? "Fees Paid" : "Fees Not Assigned"}
-            </span>
+          <div>
+            <h1 style={s.heroTitle}>Welcome back, {user?.name?.split(' ')[0] || "Student"} 👋</h1>
+            <p style={s.heroSub}>Class {user?.class?.name || "-"}{user?.class?.section || ""} • {user?.satCode || "-"}</p>
+            <div style={s.heroBadges}>
+              <span style={s.heroPill}>{academicYear}</span>
+              <span style={feeStatus === "Due" ? s.heroBadgeDue : s.heroBadgePaid}>
+                {feeStatus === "Due" ? `Fees Due: ${formatCurrency(fee.totalDue)}` : feeStatus === "Paid" ? "Fees Paid" : "Fees Not Assigned"}
+              </span>
+            </div>
           </div>
         </div>
+      </div>
 
+      {loading && <div style={s.loading}>Loading dashboard...</div>}
+
+      <div style={s.grid2} className="portal-dashboard-split">
         <div style={s.quickGrid} className="student-quick-grid">
-          <QuickCard to="/student/attendance" icon="fa-solid fa-calendar-check" title="Attendance" subtitle={`${attendance.present} present • ${attendance.absent} absent • ${attendance.totalWorkingDays} working days`} />
-          <QuickCard to="/student/marks" icon="fa-solid fa-ranking-star" title="Marks & Grades" subtitle={marksSummary.percentage !== null ? `${marksSummary.percentage}% across ${marksSummary.subjectCount} subjects` : "View report card"} />
-          <QuickCard to="/student/fees" icon="fa-solid fa-wallet" title="Fee Details" subtitle={feeStatus === "Due" ? `${formatCurrency(fee.totalDue)} pending` : feeStatus === "Paid" ? "All clear" : "Check fee status"} />
-          <QuickCard to="/student/profile" icon="fa-solid fa-id-card" title="My Profile" subtitle="View personal info" />
+          <div className="portal-stat-in" style={{ animationDelay: "0s" }}>
+            <QuickCard to="/student/attendance" icon="fa-solid fa-calendar-check" title="Attendance" subtitle={`${attendance.present} present • ${attendance.absent} absent`} />
+          </div>
+          <div className="portal-stat-in" style={{ animationDelay: "0.07s" }}>
+            <QuickCard to="/student/marks" icon="fa-solid fa-ranking-star" title="Marks & Grades" subtitle={marksSummary.percentage !== null ? `${marksSummary.percentage}% average` : "View report card"} />
+          </div>
+          <div className="portal-stat-in" style={{ animationDelay: "0.14s" }}>
+            <QuickCard to="/student/fees" icon="fa-solid fa-wallet" title="Fee Details" subtitle={feeStatus === "Due" ? `${formatCurrency(fee.totalDue)} pending` : "All clear"} />
+          </div>
+          <div className="portal-stat-in" style={{ animationDelay: "0.21s" }}>
+            <QuickCard to="/student/profile" icon="fa-solid fa-id-card" title="My Profile" subtitle="View personal info" />
+          </div>
         </div>
       </div>
 
@@ -264,17 +279,16 @@ const s = {
   loading: { padding: "40px 32px", textAlign: "center", color: "var(--navy)", fontWeight: "800", fontSize: "1.1rem", background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.97))", borderRadius: "20px", border: "1px solid rgba(200,150,12,0.15)", boxShadow: "0 8px 32px rgba(14,107,107,0.08)" },
   empty: { padding: "36px 32px", textAlign: "center", color: "var(--navy)", background: "linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.95))", borderRadius: "20px", border: "1.5px dashed rgba(200,150,12,0.35)", fontWeight: "700", fontSize: "1rem", lineHeight: 1.6, boxShadow: "inset 0 0 32px rgba(200,150,12,0.08)" },
 
-  polaroidCard: { background: "linear-gradient(135deg, rgba(255,255,255,0.98), rgba(255,255,255,0.99))", borderRadius: "22px", padding: "36px", boxShadow: "0 16px 56px rgba(14,107,107,0.18)", border: "1px solid rgba(200,150,12,0.15)", textAlign: "center", position: "relative", overflow: "hidden", backdropFilter: "blur(10px)" },
-  polaroidTop: { position: "absolute", top: 0, left: 0, right: 0, height: "8px", background: "linear-gradient(90deg, var(--gold), var(--gold-light), #f5c842)", borderRadius: "22px 22px 0 0" },
-  avatarWrap: { display: "flex", justifyContent: "center", marginBottom: "28px", marginTop: "12px" },
-  studentAvatar: { width: "120px", height: "120px", borderRadius: "50%", border: "6px solid var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "3.5rem", fontWeight: "800", color: "var(--gold)", boxShadow: "0 8px 32px rgba(200,150,12,0.35)", background: "linear-gradient(135deg, white, rgba(255,255,255,0.9))" },
-  studentPhoto: { width: "120px", height: "120px", borderRadius: "50%", border: "6px solid var(--gold)", objectFit: "cover", boxShadow: "0 8px 32px rgba(200,150,12,0.35)", background: "linear-gradient(135deg, white, rgba(255,255,255,0.9))" },
-  studentName: { fontFamily: "var(--font-heading)", color: "var(--navy-dark)", fontSize: "2rem", margin: "0 0 12px 0", fontWeight: "700", letterSpacing: "-0.02em" },
-  studentDetails: { color: "var(--navy)", fontSize: "1.05rem", margin: "0 0 28px 0", fontWeight: "600", opacity: 0.9 },
-  badgeRow: { display: "flex", justifyContent: "center", gap: "16px", flexWrap: "wrap", marginBottom: "28px" },
-  yearPill: { background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.98))", border: "2px solid rgba(14,107,107,0.2)", padding: "10px 22px", borderRadius: "30px", fontSize: "0.95rem", fontWeight: "800", color: "var(--navy)", boxShadow: "0 4px 16px rgba(14,107,107,0.1)" },
-  badgePaid: { background: "linear-gradient(135deg, #e6f4ea, #d1e9d6)", border: "2px solid #137333", padding: "10px 22px", borderRadius: "30px", fontSize: "0.95rem", fontWeight: "800", color: "#137333", boxShadow: "0 4px 16px rgba(19,115,51,0.15)" },
-  badgeDue: { background: "linear-gradient(135deg, #fce8e6, #fad2d0)", border: "2px solid #c5221f", padding: "10px 22px", borderRadius: "30px", fontSize: "0.95rem", fontWeight: "800", color: "#c5221f", boxShadow: "0 4px 16px rgba(197,34,31,0.15)" },
+  heroBanner: { background: "linear-gradient(135deg, #051a1a 0%, #094f4f 100%)", padding: "40px 36px", borderRadius: "20px", marginBottom: "36px", color: "white", boxShadow: "0 12px 48px rgba(9, 79, 79, 0.35)", position: "relative", overflow: "hidden", border: "1px solid rgba(200,150,12,0.2)" },
+  heroAvatarWrap: { width: "100px", height: "100px", borderRadius: "50%", border: "4px solid var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", background: "white", boxShadow: "0 8px 32px rgba(200,150,12,0.35)", flexShrink: 0 },
+  heroAvatar: { width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" },
+  heroAvatarPlaceholder: { fontSize: "2.5rem", fontWeight: "800", color: "var(--gold)" },
+  heroTitle: { fontFamily: "var(--font-heading)", fontSize: "2rem", margin: "0 0 8px 0", color: "var(--white)", fontWeight: "700", lineHeight: 1.1, letterSpacing: "-0.02em" },
+  heroSub: { color: "rgba(255,255,255,0.9)", fontSize: "1.05rem", margin: "0 0 16px 0", fontWeight: "600", maxWidth: "600px" },
+  heroBadges: { display: "flex", gap: "12px", flexWrap: "wrap" },
+  heroPill: { background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", padding: "6px 16px", borderRadius: "30px", fontSize: "0.85rem", fontWeight: "800", color: "white", backdropFilter: "blur(4px)" },
+  heroBadgePaid: { background: "rgba(19,115,51,0.2)", border: "1px solid rgba(19,115,51,0.5)", padding: "6px 16px", borderRadius: "30px", fontSize: "0.85rem", fontWeight: "800", color: "#81c995", backdropFilter: "blur(4px)" },
+  heroBadgeDue: { background: "rgba(197,34,31,0.2)", border: "1px solid rgba(197,34,31,0.5)", padding: "6px 16px", borderRadius: "30px", fontSize: "0.85rem", fontWeight: "800", color: "#f28b82", backdropFilter: "blur(4px)" },
   notifyBtn: {
     marginTop: "24px",
     border: "none",
