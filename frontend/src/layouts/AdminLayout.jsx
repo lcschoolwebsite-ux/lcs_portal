@@ -60,29 +60,36 @@ const menuGroups = [
       { label: "Students", path: "/admin/students", icon: "fa-solid fa-user-graduate" },
     ],
   },
-    {
-      title: "Evaluation",
-      items: [
-        { label: "Exams", path: "/admin/exams", icon: "fa-solid fa-file-invoice" },
-        { label: "Marks Overview", path: "/admin/marks-overview", icon: "fa-solid fa-chart-column" },
-      ],
-    },
-    {
-      title: "Notices",
-      items: [
-        { label: "Announcements", path: "/admin/announcements", icon: "fa-solid fa-bullhorn" },
-        { label: "Student Notices", path: "/admin/student-notices", icon: "fa-solid fa-paper-plane" },
-      ],
-    },
-    {
-      title: "Accounts",
-      items: [
-        { label: "Fee Structure", path: "/admin/fee-structure", icon: "fa-solid fa-money-check-dollar" },
-        { label: "Fee Management", path: "/admin/fees", icon: "fa-solid fa-receipt" },
-        { label: "Pending Verifications", path: "/admin/pending-upi-verifications", icon: "fa-solid fa-circle-check" },
-      ],
-    },
-  ];
+  {
+    title: "Evaluation",
+    items: [
+      { label: "Exams", path: "/admin/exams", icon: "fa-solid fa-file-invoice" },
+      { label: "Marks Overview", path: "/admin/marks-overview", icon: "fa-solid fa-chart-column" },
+    ],
+  },
+  {
+    title: "Notices",
+    items: [
+      { label: "Announcements", path: "/admin/announcements", icon: "fa-solid fa-bullhorn" },
+      { label: "Student Notices", path: "/admin/student-notices", icon: "fa-solid fa-paper-plane" },
+    ],
+  },
+  {
+    title: "Accounts",
+    items: [
+      { label: "Fee Structure", path: "/admin/fee-structure", icon: "fa-solid fa-money-check-dollar" },
+      { label: "Fee Management", path: "/admin/fees", icon: "fa-solid fa-receipt" },
+      { label: "Pending Verifications", path: "/admin/pending-upi-verifications", icon: "fa-solid fa-circle-check" },
+    ],
+  },
+];
+
+// Helper: check if group has an active route
+function isGroupActive(group, pathname) {
+  return group.items.some(
+    (item) => pathname === item.path || pathname.startsWith(`${item.path}/`)
+  );
+}
 
 export default function AdminLayout() {
   const { user, logout } = useAuth();
@@ -90,81 +97,34 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const { academicYearLabel } = useActiveAcademicYear();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [accountsOpen, setAccountsOpen] = useState(() =>
-    location.pathname.startsWith("/admin/fee-structure") ||
-    location.pathname.startsWith("/admin/fees") ||
-    location.pathname.startsWith("/admin/pending-upi-verifications")
-  );
-  const [noticesOpen, setNoticesOpen] = useState(() =>
-    location.pathname.startsWith("/admin/announcements") ||
-    location.pathname.startsWith("/admin/student-notices")
-  );
-  const [evaluationOpen, setEvaluationOpen] = useState(() =>
-    location.pathname.startsWith("/admin/exams") ||
-    location.pathname.startsWith("/admin/marks-overview") ||
-    location.pathname.startsWith("/admin/homework")
-  );
-  const [attendanceOpen, setAttendanceOpen] = useState(() =>
-    location.pathname.startsWith("/admin/attendance") ||
-    location.pathname.startsWith("/admin/holidays")
-  );
-  const [systemSettingsOpen, setSystemSettingsOpen] = useState(() =>
-    location.pathname === "/admin" ||
-    location.pathname.startsWith("/admin/analytics") ||
-    location.pathname.startsWith("/admin/academic-years") ||
-    location.pathname.startsWith("/admin/student-logins")
-  );
-  const [usersOpen, setUsersOpen] = useState(() =>
-    location.pathname.startsWith("/admin/teachers") ||
-    location.pathname.startsWith("/admin/students")
-  );
-  const [organizationOpen, setOrganizationOpen] = useState(() =>
-    location.pathname.startsWith("/admin/classes") ||
-    location.pathname.startsWith("/admin/subjects") ||
-    location.pathname.startsWith("/admin/homework")
-  );
+
+  // Collapse state per group — open if a child route is active
+  const [openGroups, setOpenGroups] = useState(() => {
+    const initial = {};
+    menuGroups.forEach((g) => {
+      initial[g.title] = isGroupActive(g, location.pathname);
+    });
+    return initial;
+  });
+
+  const toggleGroup = (title) => {
+    setOpenGroups((prev) => ({ ...prev, [title]: !prev[title] }));
+  };
 
   const handleLogout = () => {
     logout();
     navigate("/");
   };
-  const accountsRouteActive =
-    location.pathname.startsWith("/admin/fee-structure") ||
-    location.pathname.startsWith("/admin/fees") ||
-    location.pathname.startsWith("/admin/pending-upi-verifications");
-  const accountsExpanded = accountsOpen || accountsRouteActive;
-  const noticesRouteActive =
-    location.pathname.startsWith("/admin/announcements") ||
-    location.pathname.startsWith("/admin/student-notices");
-  const noticesExpanded = noticesOpen || noticesRouteActive;
-  const evaluationRouteActive =
-    location.pathname.startsWith("/admin/exams") ||
-    location.pathname.startsWith("/admin/marks-overview") ||
-    location.pathname.startsWith("/admin/homework");
-  const evaluationExpanded = evaluationOpen || evaluationRouteActive;
-  const attendanceRouteActive =
-    location.pathname.startsWith("/admin/attendance") ||
-    location.pathname.startsWith("/admin/holidays");
-  const attendanceExpanded = attendanceOpen || attendanceRouteActive;
-  const systemSettingsRouteActive =
-    location.pathname === "/admin" ||
-    location.pathname.startsWith("/admin/analytics") ||
-    location.pathname.startsWith("/admin/academic-years") ||
-    location.pathname.startsWith("/admin/student-logins");
-  const systemSettingsExpanded = systemSettingsOpen || systemSettingsRouteActive;
-  const usersRouteActive =
-    location.pathname.startsWith("/admin/teachers") ||
-    location.pathname.startsWith("/admin/students");
-  const usersExpanded = usersOpen || usersRouteActive;
-  const organizationRouteActive =
-    location.pathname.startsWith("/admin/classes") ||
-    location.pathname.startsWith("/admin/subjects") ||
-    location.pathname.startsWith("/admin/homework");
-  const organizationExpanded = organizationOpen || organizationRouteActive;
 
-  const currentPathLabel = menuGroups
-    .flatMap(g => g.items)
-    .find(i => location.pathname === i.path || location.pathname.startsWith(`${i.path}/`))?.label || "Dashboard";
+  const currentPathLabel =
+    menuGroups
+      .flatMap((g) => g.items)
+      .find(
+        (i) =>
+          location.pathname === i.path ||
+          location.pathname.startsWith(`${i.path}/`)
+      )?.label || "Dashboard";
+
   const bottomBarItems = [
     { label: "Dashboard", shortLabel: "Home", path: "/admin", icon: "fa-solid fa-gauge-high" },
     { label: "Notices", shortLabel: "Notices", path: "/admin/announcements", icon: "fa-solid fa-bullhorn" },
@@ -179,7 +139,7 @@ export default function AdminLayout() {
         open={menuOpen}
         title="LCS Portal"
         subtitle={user?.name || "Administrator"}
-        items={menuGroups.flatMap(group => group.items)}
+        items={menuGroups.flatMap((group) => group.items)}
         currentPath={location.pathname}
         onClose={() => setMenuOpen(false)}
         onLogout={handleLogout}
@@ -196,137 +156,147 @@ export default function AdminLayout() {
         forceVisible={isNativeAndroidApp()}
       />
 
+      {/* ── SIDEBAR ── */}
       <aside style={s.sidebar} className="admin-sidebar">
+        {/* Logo area */}
         <div style={s.logoArea}>
-          <img src="/logo.png" alt="Logo" style={s.logoImg} />
+          <div style={s.logoImgWrap}>
+            <img src="/logo.png" alt="LCS Logo" style={s.logoImg} />
+          </div>
           <div>
             <h1 style={s.schoolName}>LCS Portal</h1>
             <p style={s.tagline}>System Management</p>
           </div>
         </div>
 
+        <div style={s.sidebarDividerTop} />
+
+        {/* Nav */}
         <nav style={s.nav}>
-          {menuGroups.map((group, idx) => (
-            <div key={idx} style={s.navGroup}>
-              {["System Settings", "Users", "Organization", "Accounts", "Notices", "Evaluation", "Attendance"].includes(group.title) ? (
+          {menuGroups.map((group) => {
+            const isExpanded = openGroups[group.title] || isGroupActive(group, location.pathname);
+            // Approximate max-height based on item count for smooth CSS transition
+            const maxHeight = isExpanded ? `${group.items.length * 52 + 8}px` : "0px";
+
+            return (
+              <div key={group.title} style={s.navGroup}>
+                {/* Group toggle */}
                 <button
                   type="button"
-                  style={s.groupToggle}
-                  onClick={() => {
-                    if (group.title === "Accounts") setAccountsOpen(prev => !prev);
-                    if (group.title === "Notices") setNoticesOpen(prev => !prev);
-                    if (group.title === "Evaluation") setEvaluationOpen(prev => !prev);
-                    if (group.title === "Attendance") setAttendanceOpen(prev => !prev);
-                    if (group.title === "System Settings") setSystemSettingsOpen(prev => !prev);
-                    if (group.title === "Users") setUsersOpen(prev => !prev);
-                    if (group.title === "Organization") setOrganizationOpen(prev => !prev);
-                  }}
-                  aria-expanded={
-                    group.title === "System Settings"
-                      ? systemSettingsExpanded
-                      : group.title === "Users"
-                        ? usersExpanded
-                        : group.title === "Organization"
-                          ? organizationExpanded
-                        : group.title === "Accounts"
-                          ? accountsExpanded
-                          : group.title === "Notices"
-                            ? noticesExpanded
-                            : group.title === "Evaluation"
-                              ? evaluationExpanded
-                              : attendanceExpanded
-                  }
-                  aria-controls={`admin-${group.title.toLowerCase()}-menu`}
+                  className="admin-group-btn"
+                  onClick={() => toggleGroup(group.title)}
+                  aria-expanded={isExpanded}
+                  aria-controls={`admin-group-${group.title}`}
                 >
-                  <span style={s.groupLabel}>{group.title}</span>
+                  <span className="admin-group-label">{group.title}</span>
                   <i
-                    className={`fa-solid fa-chevron-${(
-                      group.title === "System Settings"
-                        ? systemSettingsExpanded
-                        : group.title === "Users"
-                          ? usersExpanded
-                          : group.title === "Organization"
-                            ? organizationExpanded
-                          : group.title === "Accounts"
-                            ? accountsExpanded
-                            : group.title === "Notices"
-                              ? noticesExpanded
-                              : group.title === "Evaluation"
-                                ? evaluationExpanded
-                                : attendanceExpanded
-                    ) ? "up" : "down"}`}
+                    className={`fa-solid fa-chevron-down admin-group-chevron${isExpanded ? " open" : ""}`}
                     aria-hidden="true"
                   />
                 </button>
-              ) : (
-                <div style={s.groupLabel}>{group.title}</div>
-              )}
-              {(!["System Settings", "Users", "Organization", "Accounts", "Notices", "Evaluation", "Attendance"].includes(group.title)) ||
-              (group.title === "System Settings"
-                ? systemSettingsExpanded
-                : group.title === "Users"
-                  ? usersExpanded
-                  : group.title === "Organization"
-                    ? organizationExpanded
-                  : group.title === "Accounts"
-                    ? accountsExpanded
-                    : group.title === "Notices"
-                      ? noticesExpanded
-                      : group.title === "Evaluation"
-                        ? evaluationExpanded
-                        : attendanceExpanded) ? (
+
+                {/* Group items — animated slide */}
                 <div
-                  id={["System Settings", "Users", "Organization", "Accounts", "Notices", "Evaluation", "Attendance"].includes(group.title)
-                    ? `admin-${group.title.toLowerCase()}-menu`
-                    : undefined}
+                  id={`admin-group-${group.title}`}
+                  className={`admin-group-items${isExpanded ? " expanded" : ""}`}
+                  style={{ maxHeight }}
                 >
                   {group.items.map((item) => {
-                    const isActive = location.pathname === item.path;
+                    const isActive =
+                      location.pathname === item.path ||
+                      (item.path !== "/admin" && location.pathname.startsWith(`${item.path}/`));
                     return (
                       <Link
                         key={item.path}
                         to={item.path}
-                        style={{ ...s.navItem, ...(isActive ? s.activeNavItem : {}) }}
+                        className={`admin-nav-link${isActive ? " active" : ""}`}
                       >
-                        <i className={item.icon} style={s.navIcon}></i>
+                        <i className={`${item.icon} admin-nav-icon`} aria-hidden="true" />
                         {item.label}
                       </Link>
                     );
                   })}
                 </div>
-              ) : null}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </nav>
 
+        {/* Bottom profile card */}
         <div style={s.sidebarBottom}>
-          <button onClick={handleLogout} style={s.logoutBtn}>
-            <i className="fa-solid fa-right-from-bracket" style={{ marginRight: "10px" }}></i>
-            Logout
-          </button>
+          <div className="admin-sidebar-divider" />
+          <div className="admin-sidebar-profile">
+            <div className="admin-sidebar-avatar">
+              {user?.name?.[0]?.toUpperCase() || "A"}
+            </div>
+            <div className="admin-sidebar-info">
+              <div className="admin-sidebar-name">{user?.name || "Administrator"}</div>
+              <div className="admin-sidebar-role">Admin</div>
+            </div>
+            <button
+              className="admin-sidebar-logout-btn"
+              onClick={handleLogout}
+              title="Logout"
+              aria-label="Logout"
+            >
+              <i className="fa-solid fa-right-from-bracket" aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </aside>
 
+      {/* ── MAIN ── */}
       <main style={s.main} className="admin-main">
-        <header style={s.header} className="admin-header">
+        {/* Header */}
+        <header style={s.header} className="admin-header admin-header-glass">
           <div style={s.headerBrand}>
             <img src="/logo.png" alt="LCS Portal" style={s.headerLogo} />
             <div style={s.headerLeft}>
-              <h2 style={s.pageTitle}>{currentPathLabel}</h2>
-              <div style={s.breadcrumb}>Loretto Central School</div>
+              <h2 style={s.pageTitle} className="admin-page-title-accent">
+                {currentPathLabel}
+              </h2>
+              <div style={s.breadcrumb}>
+                <i className="fa-solid fa-school" style={{ marginRight: "5px", opacity: 0.6 }} aria-hidden="true" />
+                Loretto Central School
+              </div>
             </div>
           </div>
+
           <div style={s.headerRight} className="admin-header-right">
-            <div style={s.badge}>AY {academicYearLabel}</div>
-            <button onClick={handleLogout} style={s.logoutBtn} className="admin-logout-btn">
-              <i className="fa-solid fa-right-from-bracket"></i>
+            <span className="admin-ay-badge">
+              <i className="fa-solid fa-calendar-check" style={{ marginRight: "6px" }} aria-hidden="true" />
+              AY {academicYearLabel}
+            </span>
+
+            <button
+              onClick={handleLogout}
+              style={s.logoutIconBtn}
+              className="admin-logout-btn"
+              title="Logout"
+              aria-label="Logout"
+            >
+              <i className="fa-solid fa-right-from-bracket" aria-hidden="true" />
             </button>
-            <div style={s.adminAvatar}>{user?.name?.[0] || "A"}</div>
+
+            <div className="admin-header-avatar-wrap">
+              <div style={s.adminAvatar}>
+                {user?.name?.[0]?.toUpperCase() || "A"}
+              </div>
+              <div className="admin-avatar-ring" />
+            </div>
           </div>
         </header>
 
+        {/* Content */}
         <div style={s.content} className="admin-content">
-          <Suspense fallback={<div style={s.loading}><i className="fa-solid fa-circle-notch fa-spin"></i> Loading Page...</div>}>
+          <Suspense
+            fallback={
+              <div style={s.loading}>
+                <i className="fa-solid fa-circle-notch fa-spin" style={{ marginRight: "10px" }} />
+                Loading Page…
+              </div>
+            }
+          >
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/classes" element={<Classes />} />
@@ -351,6 +321,7 @@ export default function AdminLayout() {
             </Routes>
           </Suspense>
         </div>
+
         <AppFooter />
       </main>
     </div>
@@ -358,51 +329,179 @@ export default function AdminLayout() {
 }
 
 const s = {
-  layout: { display: "flex", minHeight: "100vh", background: "var(--light-bg)" },
+  layout: {
+    display: "flex",
+    minHeight: "100vh",
+    background: "var(--light-bg)",
+  },
   mobileTopbar: { display: "none" },
-  mobileBrand: { display: "flex", alignItems: "center", gap: "10px", minWidth: 0 },
-  mobileMenuBtn: { width: "44px", height: "44px", borderRadius: "12px", background: "rgba(255,255,255,0.08)", color: "var(--gold-light)", border: "1px solid rgba(200,150,12,0.28)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" },
-  mobileLogo: { width: "42px", height: "42px", objectFit: "contain", flex: "0 0 auto" },
-  mobileSchoolName: { fontFamily: "var(--font-heading)", color: "var(--white)", fontSize: "1rem", lineHeight: 1.1, margin: 0 },
-  mobileUserLine: { color: "var(--gold-light)", fontSize: "0.72rem", fontWeight: "800", margin: "3px 0 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "240px" },
-  mobileLogout: { width: "36px", height: "36px", borderRadius: "50%", background: "rgba(255,255,255,0.08)", color: "var(--gold-light)", border: "1px solid rgba(200,150,12,0.35)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" },
+
+  /* ── SIDEBAR ── */
   sidebar: {
-    width: "240px",
-    background: "linear-gradient(180deg, #051a1a 0%, #094f4f 100%)",
-    borderRight: "1px solid rgba(200,150,12,0.2)",
+    width: "260px",
+    background: "linear-gradient(175deg, #051a1a 0%, #0a3b3b 55%, #083434 100%)",
+    borderRight: "1px solid rgba(200,150,12,0.15)",
     display: "flex",
     flexDirection: "column",
     height: "100vh",
     position: "fixed",
     top: 0,
     left: 0,
-    zIndex: 100
+    zIndex: 100,
+    boxShadow: "4px 0 30px rgba(0,0,0,0.25)",
   },
-  logoArea: { padding: "24px 20px", display: "flex", alignItems: "center", gap: "12px" },
-  logoImg: { width: "45px", height: "45px", objectFit: "contain" },
-  schoolName: { color: "var(--white)", fontSize: "1rem", margin: 0, fontFamily: "var(--font-heading)" },
-  tagline: { color: "var(--white)", fontSize: "0.75rem", margin: 0, textTransform: "uppercase" },
-  nav: { flex: 1, padding: "0 16px", overflowY: "auto" },
-  navGroup: { marginBottom: "24px" },
-  groupLabel: { color: "var(--white)", fontSize: "0.78rem", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "12px", paddingLeft: "12px", opacity: 0.9 },
-  groupToggle: { width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: "transparent", border: "none", padding: 0, cursor: "pointer", color: "var(--gold)" },
-  navItem: { display: "flex", alignItems: "center", padding: "13px 12px", borderRadius: "10px", color: "var(--white)", fontSize: "1rem", fontWeight: "700", transition: "var(--transition)", marginBottom: "4px" },
-  activeNavItem: { background: "linear-gradient(135deg, var(--navy), var(--navy-dark))", color: "var(--white)", borderLeft: "3px solid var(--gold)" },
-  navIcon: { width: "24px", fontSize: "1rem" },
-  sidebarBottom: { padding: "20px", borderTop: "1px solid rgba(255,255,255,0.05)" },
-  logoutBtn: { width: "100%", padding: "12px", background: "transparent", border: "none", color: "var(--white)", opacity: 0.7, cursor: "pointer", textAlign: "left", fontWeight: "600" },
+  logoArea: {
+    padding: "22px 20px 18px",
+    display: "flex",
+    alignItems: "center",
+    gap: "13px",
+  },
+  logoImgWrap: {
+    width: "44px",
+    height: "44px",
+    borderRadius: "12px",
+    background: "rgba(255,255,255,0.07)",
+    border: "1px solid rgba(200,150,12,0.25)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "4px",
+    flexShrink: 0,
+    boxShadow: "0 2px 12px rgba(0,0,0,0.2)",
+  },
+  logoImg: {
+    width: "36px",
+    height: "36px",
+    objectFit: "contain",
+  },
+  schoolName: {
+    color: "#fff",
+    fontSize: "1rem",
+    margin: 0,
+    fontFamily: "var(--font-heading)",
+    letterSpacing: "0.01em",
+    fontWeight: 700,
+  },
+  tagline: {
+    color: "rgba(200,150,12,0.7)",
+    fontSize: "0.64rem",
+    margin: 0,
+    textTransform: "uppercase",
+    letterSpacing: "0.12em",
+    fontWeight: 700,
+    marginTop: "2px",
+  },
+  sidebarDividerTop: {
+    height: "1px",
+    background: "linear-gradient(90deg, transparent, rgba(200,150,12,0.2), transparent)",
+    margin: "0 16px 10px",
+  },
+  nav: {
+    flex: 1,
+    padding: "0 12px",
+    overflowY: "auto",
+    overflowX: "hidden",
+  },
+  navGroup: {
+    marginBottom: "6px",
+  },
+  sidebarBottom: {
+    padding: "12px 12px 16px",
+  },
 
-  main: { flex: 1, marginLeft: "240px", display: "flex", flexDirection: "column", minWidth: 0 },
-  header: { height: "72px", background: "var(--white)", borderBottom: "3px solid var(--gold)", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 32px", position: "sticky", top: 0, zIndex: 90 },
-  headerBrand: { display: "flex", alignItems: "center", gap: "16px" },
-  headerLogo: { width: "42px", height: "42px", objectFit: "contain", filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))" },
-  headerLeft: { display: "flex", flexDirection: "column" },
-  pageTitle: { margin: 0, fontSize: "1.25rem", color: "var(--navy)", fontFamily: "var(--font-heading)" },
-  breadcrumb: { fontSize: "0.75rem", color: "var(--text-muted)" },
-  headerRight: { display: "flex", alignItems: "center", gap: "16px" },
-  badge: { background: "var(--gold-pale)", color: "var(--navy-dark)", padding: "4px 12px", borderRadius: "20px", fontSize: "0.75rem", fontWeight: "800" },
-  logoutBtn: { display: "none", background: "none", border: "none", fontSize: "1.2rem", color: "var(--navy)", cursor: "pointer" },
-  adminAvatar: { width: "40px", height: "40px", borderRadius: "50%", background: "var(--gold)", color: "var(--navy-dark)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800" },
-  content: { padding: "32px", flex: 1 },
-  loading: { padding: "48px", textAlign: "center", color: "var(--text-muted)", fontSize: "1.1rem" }
+  /* ── HEADER ── */
+  main: {
+    flex: 1,
+    marginLeft: "260px",
+    display: "flex",
+    flexDirection: "column",
+    minWidth: 0,
+  },
+  header: {
+    height: "68px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "0 28px",
+    position: "sticky",
+    top: 0,
+    zIndex: 90,
+  },
+  headerBrand: {
+    display: "flex",
+    alignItems: "center",
+    gap: "14px",
+  },
+  headerLogo: {
+    width: "40px",
+    height: "40px",
+    objectFit: "contain",
+    filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.12))",
+    borderRadius: "10px",
+  },
+  headerLeft: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1px",
+  },
+  pageTitle: {
+    margin: 0,
+    fontSize: "1.15rem",
+    color: "var(--navy-dark)",
+    fontFamily: "var(--font-heading)",
+    fontWeight: 700,
+  },
+  breadcrumb: {
+    fontSize: "0.72rem",
+    color: "var(--text-muted)",
+    fontWeight: 600,
+  },
+  headerRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: "14px",
+  },
+  logoutIconBtn: {
+    display: "none",
+    background: "rgba(14,107,107,0.08)",
+    border: "1px solid rgba(14,107,107,0.15)",
+    borderRadius: "10px",
+    width: "38px",
+    height: "38px",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "1rem",
+    color: "var(--navy)",
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+  },
+  adminAvatar: {
+    width: "38px",
+    height: "38px",
+    borderRadius: "50%",
+    background: "linear-gradient(135deg, var(--gold), var(--gold-light))",
+    color: "var(--navy-dark)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: "800",
+    fontSize: "1rem",
+    cursor: "pointer",
+    boxShadow: "0 2px 12px rgba(200,150,12,0.3)",
+  },
+
+  /* ── CONTENT ── */
+  content: {
+    padding: "28px 28px 16px",
+    flex: 1,
+  },
+  loading: {
+    padding: "56px",
+    textAlign: "center",
+    color: "var(--text-muted)",
+    fontSize: "1.05rem",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
 };
