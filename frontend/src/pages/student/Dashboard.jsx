@@ -227,20 +227,18 @@ export default function Dashboard() {
 
       {loading && <div style={s.loading}>Loading dashboard...</div>}
 
-      <div style={s.grid2} className="portal-dashboard-split">
-        <div style={s.quickGrid} className="student-quick-grid">
-          <div className="portal-stat-in" style={{ animationDelay: "0s" }}>
-            <QuickCard to="/student/attendance" icon="fa-solid fa-calendar-check" title="Attendance" subtitle={`${attendance.present} present • ${attendance.absent} absent`} />
-          </div>
-          <div className="portal-stat-in" style={{ animationDelay: "0.07s" }}>
-            <QuickCard to="/student/marks" icon="fa-solid fa-ranking-star" title="Marks & Grades" subtitle={marksSummary.percentage !== null ? `${marksSummary.percentage}% average` : "View report card"} />
-          </div>
-          <div className="portal-stat-in" style={{ animationDelay: "0.14s" }}>
-            <QuickCard to="/student/fees" icon="fa-solid fa-wallet" title="Fee Details" subtitle={feeStatus === "Due" ? `${formatCurrency(fee.totalDue)} pending` : "All clear"} />
-          </div>
-          <div className="portal-stat-in" style={{ animationDelay: "0.21s" }}>
-            <QuickCard to="/student/profile" icon="fa-solid fa-id-card" title="My Profile" subtitle="View personal info" />
-          </div>
+      <div style={s.quickGrid} className="student-quick-grid">
+        <div className="portal-stat-in" style={{ animationDelay: "0s" }}>
+          <QuickCard to="/student/attendance" icon="fa-solid fa-calendar-check" title="Attendance" subtitle={`${attendance.present} present • ${attendance.absent} absent`} />
+        </div>
+        <div className="portal-stat-in" style={{ animationDelay: "0.07s" }}>
+          <QuickCard to="/student/marks" icon="fa-solid fa-ranking-star" title="Marks & Grades" subtitle={marksSummary.percentage !== null ? `${marksSummary.percentage}% average` : "View report card"} />
+        </div>
+        <div className="portal-stat-in" style={{ animationDelay: "0.14s" }}>
+          <QuickCard to="/student/fees" icon="fa-solid fa-wallet" title="Fee Details" subtitle={feeStatus === "Due" ? `${formatCurrency(fee.totalDue)} pending` : "All clear"} />
+        </div>
+        <div className="portal-stat-in" style={{ animationDelay: "0.21s" }}>
+          <QuickCard to="/student/profile" icon="fa-solid fa-id-card" title="My Profile" subtitle="View personal info" />
         </div>
       </div>
 
@@ -274,7 +272,6 @@ function formatNoticeText(announcement) {
 
 const s = {
   page: { width: "100%" },
-  grid2: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "36px", marginBottom: "40px" },
   card: { background: "linear-gradient(135deg, rgba(255,255,255,0.98), rgba(255,255,255,0.99))", borderRadius: "22px", padding: "36px", boxShadow: "0 12px 48px rgba(14,107,107,0.12)", border: "1px solid rgba(200,150,12,0.12)", backdropFilter: "blur(10px)" },
   loading: { padding: "40px 32px", textAlign: "center", color: "var(--navy)", fontWeight: "800", fontSize: "1.1rem", background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.97))", borderRadius: "20px", border: "1px solid rgba(200,150,12,0.15)", boxShadow: "0 8px 32px rgba(14,107,107,0.08)" },
   empty: { padding: "36px 32px", textAlign: "center", color: "var(--navy)", background: "linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.95))", borderRadius: "20px", border: "1.5px dashed rgba(200,150,12,0.35)", fontWeight: "700", fontSize: "1rem", lineHeight: 1.6, boxShadow: "inset 0 0 32px rgba(200,150,12,0.08)" },
@@ -308,7 +305,7 @@ const s = {
   },
   notifyStatus: { margin: "16px 0 0", fontSize: "0.95rem", color: "var(--navy)", lineHeight: 1.5, fontWeight: "600", background: "rgba(255,255,255,0.8)", padding: "12px 18px", borderRadius: "16px", border: "1px solid rgba(200,150,12,0.2)" },
 
-  quickGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" },
+  quickGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "24px", marginBottom: "36px" },
   quickCard: { background: "linear-gradient(135deg, #051a1a 0%, #094f4f 100%)", borderRadius: "20px", padding: "28px", color: "var(--white)", cursor: "pointer", position: "relative", overflow: "hidden", transition: "all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)", boxShadow: "0 12px 36px rgba(9,79,79,0.35)", textDecoration: "none", minHeight: "180px", boxSizing: "border-box", border: "1px solid rgba(200,150,12,0.2)" },
   quickCardTop: { position: "absolute", top: 0, left: 0, right: 0, height: "6px", background: "var(--gold)", borderRadius: "20px 20px 0 0" },
   quickIcon: { fontSize: "2.5rem", color: "var(--gold)", marginBottom: "20px", filter: "drop-shadow(0 4px 8px rgba(200,150,12,0.4))" },
