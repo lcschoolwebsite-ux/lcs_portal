@@ -370,7 +370,7 @@ export default function MarksOverview() {
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={6} style={s.emptyCell}>No marks found for this class.</td>
+                        <td colSpan={7} style={s.emptyCell}>No marks found for this class.</td>
                       </tr>
                     )}
                   </tbody>
@@ -405,18 +405,18 @@ export default function MarksOverview() {
             <table style={{ ...s.table, minWidth: 0 }}>
               <thead>
                 <tr>
-                  <th>Student</th>
-                  <th>Marks</th>
+                  <th style={s.classTableHead}>Student</th>
+                  <th style={s.classTableHead}>Marks</th>
                 </tr>
               </thead>
               <tbody>
                 {selectedClassGroupMarks.length ? selectedClassGroupMarks.map((row, idx) => (
                   <tr key={`${row.studentId}-${row.examId || row.examTitle}-${idx}`}>
-                    <td>
+                    <td style={s.classTableCell}>
                       <div style={s.cellTitle}>{row.name}</div>
                       <div style={s.cellSub}>{row.satCode || "SAT code not set"}</div>
                     </td>
-                    <td>
+                    <td style={s.classTableCell}>
                       <span style={row.status === "Pass" ? s.goodPill : row.status === "Absent" ? s.absentPill : s.failPill}>
                         {row.marksObtained === "AB" ? "Absent" : `${row.marksObtained}/${row.maxMarks}`}
                       </span>
@@ -510,27 +510,27 @@ export default function MarksOverview() {
                 <table style={s.table}>
                   <thead>
                     <tr>
-                      <th>Exam</th>
-                      <th>Subject</th>
-                      <th>Type</th>
-                      <th>Score</th>
-                      <th>Status</th>
-                      <th>Teacher</th>
+                      <th style={s.classTableHead}>Exam</th>
+                      <th style={s.classTableHead}>Subject</th>
+                      <th style={s.classTableHead}>Type</th>
+                      <th style={s.classTableHead}>Score</th>
+                      <th style={s.classTableHead}>Status</th>
+                      <th style={s.classTableHead}>Teacher</th>
                     </tr>
                   </thead>
                   <tbody>
                     {selectedStudent.results.length ? selectedStudent.results.map((result, idx) => (
                       <tr key={`${result.examId || idx}-${idx}`}>
-                        <td>{result.examTitle}</td>
-                        <td>{result.subjectName}</td>
-                        <td>{result.examType}</td>
-                        <td>{result.marksObtained === "AB" ? "Absent" : `${result.marksObtained}/${result.maxMarks}`}</td>
-                        <td>
+                        <td style={s.classTableCell}>{result.examTitle}</td>
+                        <td style={s.classTableCell}>{result.subjectName}</td>
+                        <td style={s.classTableCell}>{result.examType}</td>
+                        <td style={s.classTableCell}>{result.marksObtained === "AB" ? "Absent" : `${result.marksObtained}/${result.maxMarks}`}</td>
+                        <td style={s.classTableCell}>
                           <span style={result.status === "Pass" ? s.goodPill : result.status === "Absent" ? s.absentPill : s.failPill}>
                             {result.status}
                           </span>
                         </td>
-                        <td>{result.teacherName}</td>
+                        <td style={s.classTableCell}>{result.teacherName}</td>
                       </tr>
                     )) : (
                       <tr>
@@ -752,7 +752,6 @@ const s = {
     padding: "18px",
     color: "var(--text-muted)"
   },
-  tableHead: {},
   cellTitle: { fontWeight: 800, color: "var(--navy)" },
   cellSub: { fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "3px" },
   classTableHead: {
@@ -760,7 +759,10 @@ const s = {
     fontWeight: 900,
     textTransform: "uppercase",
     letterSpacing: "0.08em",
-    fontSize: "0.72rem"
+    fontSize: "0.72rem",
+    textAlign: "left",
+    padding: "12px 16px",
+    borderBottom: "1px solid #e7eef2"
   },
   classTableRow: {
     cursor: "pointer",
@@ -771,7 +773,9 @@ const s = {
   },
   classTableCell: {
     color: "var(--navy-dark)",
-    fontWeight: 700
+    fontWeight: 700,
+    padding: "12px 16px",
+    borderBottom: "1px solid #e7eef2"
   },
   failPill: {
     display: "inline-flex",
