@@ -153,10 +153,12 @@ export default function Marks() {
       grade: percentage === null
         ? "N/A"
         : percentage >= 90 ? "A+"
-          : percentage >= 75 ? "A"
-            : percentage >= 60 ? "B"
-              : percentage >= 45 ? "C"
-                : "Needs Support"
+          : percentage >= 80 ? "A"
+            : percentage >= 70 ? "B+"
+              : percentage >= 60 ? "B"
+                : percentage >= 50 ? "C"
+                  : percentage >= 35 ? "D"
+                    : "F"
     };
   }, [activeRows]);
 
@@ -487,7 +489,7 @@ export default function Marks() {
           {/* Grade Scale Table in UI */}
           <div style={{ marginTop: "28px" }}>
             <h3 style={{ ...s.selectorTitle, marginBottom: "12px" }}>Grade Scale</h3>
-            <div style={s.tableWrap}>
+            <div className="student-table-wrap" style={s.tableWrap}>
               <table style={s.table}>
                 <thead>
                   <tr>
