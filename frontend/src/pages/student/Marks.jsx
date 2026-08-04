@@ -234,8 +234,8 @@ export default function Marks() {
 
     const tableY = sectionY + 30;
     const headerH = 34;
-    const footerSpace = 142;
-    const rowH = Math.min(24, Math.max(5.5, (pageHeight - tableY - footerSpace - headerH) / activeRows.length));
+    const footerSpace = 110;
+    const rowH = Math.min(24, Math.max(5.5, (pageHeight - tableY - footerSpace - headerH) / (activeRows.length + 1)));
     const cols = [
       { label: "SUBJECTS", width: 138, key: "subjectName", align: "left" },
       { label: "EXAM", width: 138, key: "examTitle", align: "left" },
@@ -264,26 +264,61 @@ export default function Marks() {
       });
     });
 
-    let y = tableY + headerH + rowH * activeRows.length + 28;
+    // Add overall row
+    let y = tableY + headerH + rowH * activeRows.length;
+    x = margin;
+    const overallLabelWidth = cols[0].width + cols[1].width;
+    cell(x, y, overallLabelWidth, rowH, "OVERALL", { fill: "#f4f7f6", bold: true, align: "right", border: line, color: black });
+    x += overallLabelWidth;
+    cell(x, y, cols[2].width, rowH, String(summary.totalMax), { fill: "#f4f7f6", bold: true, align: "center", border: line, color: black });
+    x += cols[2].width;
+    cell(x, y, cols[3].width, rowH, String(summary.totalScored), { fill: "#f4f7f6", bold: true, align: "center", border: line, color: black });
+    x += cols[3].width;
+    cell(x, y, cols[4].width, rowH, String(summary.grade), { fill: "#f4f7f6", bold: true, align: "center", border: line, color: black });
+    x += cols[4].width;
+    cell(x, y, cols[5].width, rowH, summary.percentage === null ? "N/A" : formatPercent(summary.percentage), { fill: "#f4f7f6", bold: true, align: "center", border: line, color: black });
+
+    y += rowH + 24;
+
     doc.setFont("helvetica", "bold");
     doc.setTextColor("#111111");
     doc.setFontSize(11);
-    doc.text("GRADE SCALE:", margin + 10, y);
-    doc.setFont("helvetica", "normal");
-    doc.text("A+: 90%-100%    A: 80%-89%    B+: 70%-79%    B: 60%-69%    C: 50%-59%    D: 35%-49%    F: Fail", margin + 94, y);
+    doc.text("GRADE SCALE:", margin, y);
+    
+    y += 12;
+    const grades = [
+      { grade: "A+", range: "90% - 100%" },
+      { grade: "A", range: "80% - 89%" },
+      { grade: "B+", range: "70% - 79%" },
+      { grade: "B", range: "60% - 69%" },
+      { grade: "C", range: "50% - 59%" },
+      { grade: "D", range: "35% - 49%" },
+      { grade: "F", range: "Fail" }
+    ];
+    
+    const gradeColW = contentWidth / grades.length;
+    let gradeX = margin;
+    
+    // Top row (Grades)
+    grades.forEach((g) => {
+      cell(gradeX, y, gradeColW, 20, g.grade, { fill: "#f4f7f6", bold: true, align: "center", border: line, color: black });
+      gradeX += gradeColW;
+    });
+    
+    // Bottom row (Ranges)
+    gradeX = margin;
+    grades.forEach((g) => {
+      cell(gradeX, y + 20, gradeColW, 20, g.range, { align: "center", border: line, color: text });
+      gradeX += gradeColW;
+    });
 
-    y += 24;
-    const commentH = Math.max(52, pageHeight - y - 40);
-    doc.setDrawColor(line);
-    doc.rect(margin + 6, y, contentWidth - 12, commentH);
+    const sigY = pageHeight - margin - 30;
     doc.setFont("helvetica", "bold");
     doc.setTextColor("#111111");
     doc.setFontSize(10);
-    doc.text("COMMENTS:", margin + 16, y + 20);
-
-    const sigY = y + commentH - 24;
-    doc.text("Class Teacher Sign", margin + 42, sigY);
-    doc.text("Principal Sign with Stamp", pageWidth - margin - 160, sigY);
+    doc.text("Class Teacher Sign", margin + 20, sigY);
+    doc.text("Principal Sign with Stamp", pageWidth - margin - 150, sigY);
+    
     doc.setFont("helvetica", "normal");
     doc.setTextColor(text);
     doc.setFontSize(8);
