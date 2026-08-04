@@ -192,7 +192,11 @@ export default function Marks() {
       doc.setFont("helvetica", opts.bold ? "bold" : "normal");
       doc.setFontSize(opts.size || 9);
       const safeText = fitText(doc, value, w - 10);
-      const textX = opts.align === "center" ? x + w / 2 : x + 5;
+      const textX = opts.align === "center"
+        ? x + w / 2
+        : opts.align === "right"
+          ? x + w - 5
+          : x + 5;
       doc.text(safeText, textX, y + h / 2 + (opts.size || 9) / 3, { align: opts.align || "left" });
     };
 
