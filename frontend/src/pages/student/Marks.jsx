@@ -450,6 +450,16 @@ export default function Marks() {
                       <td style={{...s.td, textAlign: 'center'}}>{formatPercent(row.percentage)}</td>
                     </tr>
                   ))}
+                  {/* Overall Row */}
+                  <tr style={{...s.tr, background: "#f7faf5", fontWeight: "bold"}}>
+                    <td colSpan={2} style={{...s.td, textAlign: 'right'}}><strong>OVERALL</strong></td>
+                    <td style={{...s.td, textAlign: 'center'}}>{summary.totalMax}</td>
+                    <td style={{...s.td, textAlign: 'center', fontWeight: '800'}}>{summary.totalScored}</td>
+                    <td style={{...s.td, textAlign: 'center'}}>
+                      <span style={summary.grade === "Needs Support" || summary.grade === "F" ? s.gradeBadgeFail : s.gradeBadge}>{summary.grade}</span>
+                    </td>
+                    <td style={{...s.td, textAlign: 'center'}}>{summary.percentage === null ? "N/A" : formatPercent(summary.percentage)}</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -471,6 +481,39 @@ export default function Marks() {
             <div style={s.summaryItem}>
               <div style={s.summaryVal}>{summary.grade}</div>
               <div style={s.summaryLabel}>Overall Grade</div>
+            </div>
+          </div>
+
+          {/* Grade Scale Table in UI */}
+          <div style={{ marginTop: "28px" }}>
+            <h3 style={{ ...s.selectorTitle, marginBottom: "12px" }}>Grade Scale</h3>
+            <div style={s.tableWrap}>
+              <table style={s.table}>
+                <thead>
+                  <tr>
+                    <th style={{ ...s.th, textAlign: 'center' }}>Grade</th>
+                    <th style={{ ...s.th, textAlign: 'center' }}>A+</th>
+                    <th style={{ ...s.th, textAlign: 'center' }}>A</th>
+                    <th style={{ ...s.th, textAlign: 'center' }}>B+</th>
+                    <th style={{ ...s.th, textAlign: 'center' }}>B</th>
+                    <th style={{ ...s.th, textAlign: 'center' }}>C</th>
+                    <th style={{ ...s.th, textAlign: 'center' }}>D</th>
+                    <th style={{ ...s.th, textAlign: 'center' }}>F</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={s.tr}>
+                    <td style={{ ...s.td, fontWeight: "bold", textAlign: 'center' }}>Range</td>
+                    <td style={{ ...s.td, textAlign: 'center' }}>90% - 100%</td>
+                    <td style={{ ...s.td, textAlign: 'center' }}>80% - 89%</td>
+                    <td style={{ ...s.td, textAlign: 'center' }}>70% - 79%</td>
+                    <td style={{ ...s.td, textAlign: 'center' }}>60% - 69%</td>
+                    <td style={{ ...s.td, textAlign: 'center' }}>50% - 59%</td>
+                    <td style={{ ...s.td, textAlign: 'center' }}>35% - 49%</td>
+                    <td style={{ ...s.td, textAlign: 'center' }}>Fail</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -517,8 +560,8 @@ const s = {
   tableWrap: { overflowX: "auto", marginBottom: "20px" },
   table: { width: "100%", borderCollapse: "collapse" },
   th: { background: "#315a25", color: "var(--white)", padding: "12px", textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em", border: "1px solid #315a25" },
-  tr: { borderBottom: "1px solid #777" },
-  td: { padding: "11px 12px", fontSize: "0.9rem", border: "1px solid #777", color: "#686868" },
+  tr: { borderBottom: "1px solid var(--border)" },
+  td: { padding: "12px 16px", fontSize: "0.9rem", border: "1px solid var(--border)", color: "#4a5568" },
   gradeBadge: { padding: "4px 11px", borderRadius: "3px", fontWeight: "800", color: "#315a25", background: "#eef5e9", border: "1px solid rgba(49,90,37,0.28)" },
   gradeBadgeFail: { padding: "4px 11px", borderRadius: "3px", fontWeight: "800", color: "#d00000", background: "#fdecec", border: "1px solid rgba(208,0,0,0.28)" },
   summaryBar: { display: "flex", background: "#f7faf5", borderRadius: "4px", padding: "16px", color: "#315a25", justifyContent: "space-around", marginBottom: "16px", border: "1px solid #9aa294", gap: "16px", flexWrap: "wrap" },
