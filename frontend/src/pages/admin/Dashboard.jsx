@@ -10,22 +10,19 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from "recharts";
 
-// ── Custom Donut Label ──────────────────────────────────────────────────────
-function AttendanceCenterLabel({ viewBox, present, absent }) {
-  const { cx, cy } = viewBox;
+// ── Donut center label ──────────────────────────────────────────────────────
+function AttendanceCenterLabel({ present = 0, absent = 0 }) {
   const total = present + absent;
   const pct = total > 0 ? Math.round((present / total) * 100) : 0;
   return (
-    <g>
-      <text x={cx} y={cy - 8} textAnchor="middle" dominantBaseline="middle"
-        style={{ fontSize: "1.55rem", fontWeight: 800, fill: "var(--navy-dark)", fontFamily: "var(--font-counter)" }}>
+    <div style={{ textAlign: "center", lineHeight: 1, pointerEvents: "none" }}>
+      <div style={{ fontSize: "1.55rem", fontWeight: 800, color: "var(--navy-dark)", fontFamily: "var(--font-counter)" }}>
         {pct}%
-      </text>
-      <text x={cx} y={cy + 14} textAnchor="middle"
-        style={{ fontSize: "0.62rem", fontWeight: 700, fill: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: "var(--font-body)" }}>
+      </div>
+      <div style={{ marginTop: "5px", fontSize: "0.62rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: "var(--font-body)" }}>
         Present
-      </text>
-    </g>
+      </div>
+    </div>
   );
 }
 
@@ -189,7 +186,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          <div style={{ height: "210px", width: "100%", marginTop: "4px" }}>
+          <div style={{ height: "210px", width: "100%", marginTop: "4px", position: "relative" }}>
             <ResponsiveContainer>
               <PieChart>
                 <Pie
@@ -208,10 +205,6 @@ export default function Dashboard() {
                   {COLORS.map((color, index) => (
                     <Cell key={`cell-${index}`} fill={color} />
                   ))}
-                  <AttendanceCenterLabel
-                    present={stats.todayAttendance.present}
-                    absent={stats.todayAttendance.absent}
-                  />
                 </Pie>
                 <Legend
                   iconType="circle"
@@ -225,6 +218,12 @@ export default function Dashboard() {
                 />
               </PieChart>
             </ResponsiveContainer>
+            <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)" }}>
+              <AttendanceCenterLabel
+                present={stats.todayAttendance.present}
+                absent={stats.todayAttendance.absent}
+              />
+            </div>
           </div>
 
           {/* Summary */}
