@@ -55,7 +55,15 @@ exports.create = async (req, res) => {
 };
 
 exports.update = async (req, res) => {
-  try { res.json(await Exam.findByIdAndUpdate(req.params.id, req.body, { new: true })); }
+  try {
+    const exam = await Exam.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+      .populate("subject", "name")
+      .populate("class", "name section");
+
+    if (!exam) return res.status(404).json({ message: "Exam not found" });
+
+    res.json(exam);
+  }
   catch (e) { res.status(400).json({ message: e.message }); }
 };
 

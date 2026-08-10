@@ -22,8 +22,11 @@ export default function Exams() {
   const [studentSearch, setStudentSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [statsModal, setStatsModal] = useState({ open: false, loading: false, exam: null, data: null });
+  const [editingExam, setEditingExam] = useState(null);
+  const [savingExam, setSavingExam] = useState(false);
   const [deletingId, setDeletingId] = useState("");
   const [form, setForm] = useState({ title: "", class: "", subjects: [], maxMarks: 100, passMark: 35, examType: "Periodic Test", date: "" });
+  const isEditing = Boolean(editingExam?._id);
   const selectedClass = classes.find(c => c._id === classFilter);
   const selectedExamType = examTypes.find(type => type.name === typeFilter);
   const examTypeByName = new Map(examTypes.map(type => [type.name, type]));
@@ -55,7 +58,7 @@ export default function Exams() {
   };
 
   const resetForm = () => {
-    setForm({ title: "", class: "", subjects: [], maxMarks: 100, passMark: 35, examType: typeFilter || examTypeNames[0] || "Periodic Test", date: "" });
+    setForm(f => ({ title: "", class: "", subjects: [], maxMarks: 100, passMark: 35, examType: typeFilter || examTypeNames[0] || "Periodic Test", date: "", academicYear: f.academicYear }));
   };
 
   const fetchData = async () => {
@@ -171,6 +174,7 @@ export default function Exams() {
   };
 
   const openScheduleModal = (examTypeName = typeFilter) => {
+    setEditingExam(null);
     setForm(f => ({
       ...f,
       class: classFilter || f.class || classes[0]?._id || "",
@@ -180,10 +184,35 @@ export default function Exams() {
     setIsModalOpen(true);
   };
 
-  const handleCreate = async () => {
+  const closeScheduleModal = () => {
+    setIsModalOpen(false);
+    setEditingExam(null);
+    resetForm();
+  };
+
+  const openEditModal = (exam) => {
+    const classId = exam.class?._id || exam.class || "";
+    const subjectId = exam.subject?._id || exam.subject || "";
+
+    setEditingExam(exam);
+    setForm(f => ({
+      ...f,
+      title: exam.title || "",
+      class: classId,
+      subjects: subjectId ? [subjectId] : [],
+      maxMarks: exam.maxMarks ?? 100,
+      passMark: exam.passMark ?? 35,
+      examType: exam.examType || typeFilter || examTypeNames[0] || "Periodic Test",
+      date: exam.date || "",
+      academicYear: exam.academicYear?._id || exam.academicYear || f.academicYear
+    }));
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async () => {
     try {
       if (user?.role !== "admin") {
-        alert("Please log in as admin before creating an exam.");
+        alert(`Please log in as admin before ${isEditing ? "editing" : "creating"} an exam.`);
         return;
       }
 
@@ -200,34 +229,51 @@ export default function Exams() {
       const activeAcademicYear = form.academicYear || getSubjectYearId(form.subjects[0]);
 
       if (!activeAcademicYear) {
-        alert("Please set an active academic year before creating an exam.");
+        alert(`Please set an active academic year before ${isEditing ? "editing" : "creating"} an exam.`);
         return;
       }
 
-      await Promise.all(form.subjects.map(subjectId => api.post("/exams", {
+      const basePayload = {
         title: form.title,
         class: form.class,
-        subject: subjectId,
         maxMarks: form.maxMarks,
         passMark: form.passMark,
         examType: form.examType,
         date: form.date,
         academicYear: activeAcademicYear
-      })));
-      setIsModalOpen(false);
-      resetForm();
+      };
+
+      setSavingExam(true);
+
+      if (isEditing) {
+        await api.put(`/exams/${editingExam._id}`, {
+          ...basePayload,
+          subject: form.subjects[0]
+        });
+      } else {
+        await Promise.all(form.subjects.map(subjectId => api.post("/exams", {
+          ...basePayload,
+          subject: subjectId
+        })));
+      }
+
+      closeScheduleModal();
       fetchData();
     } catch (e) {
-      alert(e.response?.data?.message || "Creation failed");
+      alert(e.response?.data?.message || (isEditing ? "Update failed" : "Creation failed"));
+    } finally {
+      setSavingExam(false);
     }
   };
 
   const toggleSubject = subjectId => {
     setForm(prev => ({
       ...prev,
-      subjects: prev.subjects.includes(subjectId)
-        ? prev.subjects.filter(id => id !== subjectId)
-        : [...prev.subjects, subjectId],
+      subjects: isEditing
+        ? [subjectId]
+        : (prev.subjects.includes(subjectId)
+          ? prev.subjects.filter(id => id !== subjectId)
+          : [...prev.subjects, subjectId]),
       academicYear: prev.academicYear || getSubjectYearId(subjectId)
     }));
   };
@@ -403,6 +449,15 @@ export default function Exams() {
                           <button style={s.statsBtn} onClick={() => handleViewStats(e)}>View Marks</button>
                           <button
                             type="button"
+                            style={s.editBtn}
+                            onClick={() => openEditModal(e)}
+                            title="Edit exam"
+                          >
+                            <i className="fa-solid fa-pen-to-square"></i>
+                            Edit
+                          </button>
+                          <button
+                            type="button"
                             style={s.deleteBtn}
                             onClick={() => handleDelete(e)}
                             disabled={deletingId === e._id}
@@ -526,14 +581,15 @@ export default function Exams() {
 
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={`Create Exam${form.examType ? ` inside ${form.examType}` : ""}`}
-        subtitle="Choose the exam type first, then schedule classes and subjects under it."
+        onClose={closeScheduleModal}
+        title={isEditing ? "Edit Exam" : `Create Exam${form.examType ? ` inside ${form.examType}` : ""}`}
+        subtitle={isEditing ? "Update this exam schedule and marks settings." : "Choose the exam type first, then schedule classes and subjects under it."}
         footer={(
           <div style={{display: 'flex', gap: '12px', width: '100%'}}>
-            <button style={s.cancelBtn} onClick={() => setIsModalOpen(false)}>Cancel</button>
-            <button style={s.saveBtn} onClick={handleCreate}>
-              <i className="fa-solid fa-plus-circle" style={{marginRight: '8px'}}></i> Save {form.subjects.length > 1 ? `${form.subjects.length} Exams` : "& Schedule Exam"}
+            <button style={s.cancelBtn} onClick={closeScheduleModal}>Cancel</button>
+            <button style={s.saveBtn} onClick={handleSave} disabled={savingExam}>
+              <i className={`fa-solid ${savingExam ? "fa-circle-notch fa-spin" : isEditing ? "fa-floppy-disk" : "fa-plus-circle"}`} style={{marginRight: '8px'}}></i>
+              {savingExam ? "Saving..." : isEditing ? "Update Exam" : `Save ${form.subjects.length > 1 ? `${form.subjects.length} Exams` : "& Schedule Exam"}`}
             </button>
           </div>
         )}
@@ -559,7 +615,7 @@ export default function Exams() {
               </select>
             </div>
             <div style={s.formItem}>
-              <label style={s.label}>Subjects</label>
+              <label style={s.label}>{isEditing ? "Subject" : "Subjects"}</label>
               <div style={s.subjectPicker}>
                 {!form.class && <div style={s.subjectHint}>Select a class first.</div>}
                 {form.class && classSubjects.length === 0 && <div style={s.subjectHint}>No subjects found for this class.</div>}
@@ -582,7 +638,7 @@ export default function Exams() {
               </div>
               {selectedSubjectNames.length > 0 && (
                 <div style={s.selectedText}>
-                  {selectedSubjectNames.length} selected: {selectedSubjectNames.join(", ")}
+                  {isEditing ? `Selected: ${selectedSubjectNames[0]}` : `${selectedSubjectNames.length} selected: ${selectedSubjectNames.join(", ")}`}
                 </div>
               )}
             </div>
@@ -661,6 +717,7 @@ const s = {
   passMark: { fontSize: "0.8rem", fontWeight: "700", color: "var(--success-text)", display: "flex", alignItems: "center", gap: "6px" },
   cardActions: { display: "flex", alignItems: "center", gap: "8px" },
   statsBtn: { background: "none", border: "none", color: "var(--navy)", cursor: "pointer", fontWeight: "800", fontSize: "0.85rem", textDecoration: "underline" },
+  editBtn: { border: "1px solid var(--border)", background: "var(--white)", color: "var(--navy)", borderRadius: "8px", padding: "8px 10px", fontWeight: "800", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.82rem" },
   deleteBtn: { width: "34px", height: "34px", borderRadius: "8px", border: "1px solid var(--danger-text)", background: "var(--danger-bg)", color: "var(--danger-text)", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" },
   loadingBox: { padding: "32px", textAlign: "center", color: "var(--text-muted)", fontWeight: "700" },
   statsWrap: { display: "flex", flexDirection: "column", gap: "18px" },
