@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { calculateGrade } = require("../utils/grade");
 
 const markSchema = new mongoose.Schema({
   student:      { type: mongoose.Schema.Types.ObjectId, ref: "Student", required: true },
@@ -15,17 +16,19 @@ markSchema.index({ student: 1, exam: 1, subject: 1 }, { unique: true });
 markSchema.index({ exam: 1, student: 1 });
 markSchema.index({ academicYear: 1, subject: 1 });
 
-markSchema.pre("save", function (next) {
-  if (this.isAbsent) { this.grade = "AB"; return next(); }
-  const p = this.marksObtained;
-  if      (p >= 90) this.grade = "A+";
-  else if (p >= 80) this.grade = "A";
-  else if (p >= 70) this.grade = "B+";
-  else if (p >= 60) this.grade = "B";
-  else if (p >= 50) this.grade = "C";
-  else if (p >= 35) this.grade = "D";
-  else              this.grade = "F";
-  next();
+markSchema.pre("save", async function (next) {
+  try {
+    if (this.isAbsent) {
+      this.grade = "AB";
+      return next();
+    }
+
+    const exam = await this.model("Exam").findById(this.exam).select("maxMarks").lean();
+    this.grade = calculateGrade(this.marksObtained, exam?.maxMarks, this.isAbsent);
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
 
 module.exports = mongoose.model("Mark", markSchema);

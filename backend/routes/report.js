@@ -3,6 +3,7 @@ const auth = require("../middleware/auth");
 const Student = require("../models/Student");
 const Mark = require("../models/Mark");
 const { generateReportCard } = require("../utils/pdfGenerator");
+const { calculateGrade } = require("../utils/grade");
 
 router.get("/report-card/:studentId", auth, async (req, res) => {
   try {
@@ -15,8 +16,8 @@ router.get("/report-card/:studentId", auth, async (req, res) => {
       if (!acc[sName]) acc[sName] = [];
       acc[sName].push({
         marksObtained: m.marksObtained,
-        maxMarks:      m.exam.maxMarks,
-        grade:         m.grade
+        maxMarks:      m.exam?.maxMarks || 0,
+        grade:         calculateGrade(m.marksObtained, m.exam?.maxMarks, m.isAbsent)
       });
       return acc;
     }, {});

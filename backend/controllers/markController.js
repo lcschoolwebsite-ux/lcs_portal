@@ -4,18 +4,7 @@ const Exam = require("../models/Exam");
 const ExamType = require("../models/ExamType");
 const { notifyClassStudents, notifyStudentById } = require("../utils/pushNotification");
 const { canViewExam, canEditExam } = require("../utils/teacherAccess");
-
-const calculateGrade = (marksObtained, maxMarks, isAbsent) => {
-  if (isAbsent) return "AB";
-  const percentage = maxMarks > 0 ? (Number(marksObtained || 0) / maxMarks) * 100 : 0;
-  if      (percentage >= 90) return "A+";
-  else if (percentage >= 80) return "A";
-  else if (percentage >= 70) return "B+";
-  else if (percentage >= 60) return "B";
-  else if (percentage >= 50) return "C";
-  else if (percentage >= 35) return "D";
-  return "F";
-};
+const { calculateGrade } = require("../utils/grade");
 
 exports.getExamMarks = async (req, res) => {
   try {
@@ -44,7 +33,7 @@ exports.getExamMarks = async (req, res) => {
         satCode:       s.satCode,
         marksObtained: m ? m.marksObtained : "",
         isAbsent:      m ? m.isAbsent : false,
-        grade:         m ? m.grade : ""
+        grade:         m ? calculateGrade(m.marksObtained, exam.maxMarks, m.isAbsent) : ""
       };
     });
 
@@ -160,7 +149,7 @@ exports.getReportCard = async (req, res) => {
         examType:      m.exam?.examType || "Exam",
         marksObtained: m.marksObtained,
         maxMarks:      m.exam?.maxMarks || 0,
-        grade:         m.grade,
+        grade:         calculateGrade(m.marksObtained, m.exam?.maxMarks, m.isAbsent),
         percentage:    m.exam?.maxMarks ? (m.marksObtained / m.exam.maxMarks) * 100 : 0
       });
       return acc;
@@ -288,7 +277,7 @@ exports.getAdminOverview = async (req, res) => {
         marksObtained: isAbsent ? "AB" : marksObtained,
         maxMarks: examMaxMarks,
         passMark: examPassMark,
-        grade: mark.grade || "",
+        grade: calculateGrade(marksObtained, examMaxMarks, isAbsent),
         status: isAbsent ? "Absent" : isPass ? "Pass" : "Fail",
         teacherName: mark.enteredBy?.name || "N/A"
       };
@@ -339,7 +328,7 @@ exports.getAdminOverview = async (req, res) => {
         marksObtained: isAbsent ? "AB" : marksObtained,
         maxMarks: examMaxMarks,
         passMark: examPassMark,
-        grade: mark.grade || "",
+        grade: calculateGrade(marksObtained, examMaxMarks, isAbsent),
         status: isAbsent ? "Absent" : isPass ? "Pass" : "Fail",
         teacherName: mark.enteredBy?.name || "N/A"
       });
@@ -356,7 +345,7 @@ exports.getAdminOverview = async (req, res) => {
           marksObtained: isAbsent ? "AB" : marksObtained,
           maxMarks: examMaxMarks,
           passMark: examPassMark,
-          grade: mark.grade || "",
+          grade: calculateGrade(marksObtained, examMaxMarks, isAbsent),
           teacherName: mark.enteredBy?.name || "N/A"
         });
       }

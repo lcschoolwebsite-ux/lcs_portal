@@ -2,6 +2,7 @@ const Exam = require("../models/Exam");
 const Mark = require("../models/Mark");
 const Student = require("../models/Student");
 const { canViewExam, canEditExam } = require("../utils/teacherAccess");
+const { calculateGrade } = require("../utils/grade");
 
 exports.getAll = async (req, res) => {
   try {
@@ -113,7 +114,8 @@ exports.getStats = async (req, res) => {
     ).values()];
 
     const gradeDistribution = classMarks.reduce((acc, m) => {
-      acc[m.grade] = (acc[m.grade] || 0) + 1;
+      const grade = calculateGrade(m.marksObtained, exam.maxMarks, m.isAbsent);
+      acc[grade] = (acc[grade] || 0) + 1;
       return acc;
     }, {});
 
@@ -129,7 +131,7 @@ exports.getStats = async (req, res) => {
         penCode: student.penCode,
         marksObtained: hasMarks ? mark.marksObtained : null,
         isAbsent: hasMarks ? mark.isAbsent : false,
-        grade: hasMarks ? mark.grade : "",
+        grade: hasMarks ? calculateGrade(mark.marksObtained, exam.maxMarks, mark.isAbsent) : "",
         status: hasMarks ? (hasPassed ? "Pass" : "Fail") : "Not Uploaded",
         uploaded: hasMarks
       };
