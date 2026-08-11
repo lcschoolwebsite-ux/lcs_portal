@@ -454,49 +454,61 @@
 
 /* Modern App-like Login Options */
 .portal-login-options {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
   width: 100%;
-  max-width: 520px;
+  max-width: 760px;
   margin: 32px auto 0;
 }
 
 .portal-login-card {
   display: flex;
-  align-items: center;
-  gap: 24px;
+  align-items: stretch;
+  gap: 18px;
   appearance: none;
-  border: 2px solid rgba(200,150,12,0.25);
-  background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
-  border-radius: 24px;
-  padding: 28px 32px;
+  border: 1px solid rgba(255,255,255,0.13);
+  background: linear-gradient(145deg, rgba(255,255,255,0.13), rgba(255,255,255,0.06));
+  border-radius: 18px;
+  padding: 20px;
   text-decoration: none;
   color: var(--white);
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  cursor: pointer;
+  transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease, background 0.22s ease;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 12px 48px rgba(0,0,0,0.3);
+  box-shadow: 0 16px 42px rgba(0,0,0,0.22);
   font: inherit;
   width: 100%;
   text-align: left;
   cursor: pointer;
+  min-height: 158px;
 }
 
 .portal-login-card::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(200,150,12,0.15), transparent 70%);
+  background:
+    linear-gradient(135deg, rgba(200,150,12,0.16), transparent 60%),
+    radial-gradient(circle at top right, rgba(255,255,255,0.14), transparent 36%);
   opacity: 0;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.22s ease;
+}
+
+.portal-login-card::after {
+  content: "";
+  position: absolute;
+  inset: auto 20px 0 20px;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity: 0.75;
 }
 
 .portal-login-card:hover {
-  transform: translateY(-8px) scale(1.02);
-  border-color: var(--gold);
-  box-shadow: 0 20px 64px rgba(200,150,12,0.35), 0 0 40px rgba(200,150,12,0.2);
+  transform: translateY(-5px);
+  border-color: rgba(200,150,12,0.55);
+  background: linear-gradient(145deg, rgba(255,255,255,0.16), rgba(255,255,255,0.08));
+  box-shadow: 0 20px 54px rgba(0,0,0,0.3), 0 0 26px rgba(200,150,12,0.14);
 }
 
 .portal-login-card:hover::before {
@@ -504,23 +516,23 @@
 }
 
 .portal-login-card:active {
-  transform: translateY(-4px) scale(1.01);
+  transform: translateY(-2px);
 }
 
 .portal-login-icon {
-  width: 72px;
-  height: 72px;
-  background: linear-gradient(135deg, rgba(200,150,12,0.25), rgba(200,150,12,0.15));
-  border: 2px solid rgba(200,150,12,0.4);
-  border-radius: 20px;
+  width: 58px;
+  height: 58px;
+  background: rgba(200,150,12,0.14);
+  border: 1px solid rgba(200,150,12,0.35);
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2rem;
+  font-size: 1.45rem;
   color: var(--gold-light);
   flex-shrink: 0;
   box-shadow: 0 8px 24px rgba(200,150,12,0.2);
-  transition: all 0.4s ease;
+  transition: transform 0.22s ease, background 0.22s ease, color 0.22s ease, box-shadow 0.22s ease;
   position: relative;
   z-index: 1;
 }
@@ -528,41 +540,41 @@
 .portal-login-card:hover .portal-login-icon {
   background: linear-gradient(135deg, var(--gold), var(--gold-light));
   color: var(--navy-dark);
-  transform: rotate(5deg) scale(1.1);
-  box-shadow: 0 12px 32px rgba(200,150,12,0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(200,150,12,0.34);
 }
 
 .portal-login-content {
   flex: 1;
   position: relative;
   z-index: 1;
+  min-width: 0;
 }
 
 .portal-login-title {
   font-family: var(--font-heading);
-  font-size: 1.6rem;
+  font-size: 1.24rem;
   font-weight: 700;
-  margin: 0 0 8px 0;
+  margin: 2px 0 8px 0;
   color: var(--white);
-  letter-spacing: -0.01em;
 }
 
 .portal-login-desc {
-  font-size: 0.95rem;
-  color: rgba(255,255,255,0.75);
-  margin: 0 0 16px 0;
-  line-height: 1.5;
+  font-size: 0.86rem;
+  color: rgba(255,255,255,0.68);
+  margin: 0 0 18px 0;
+  line-height: 1.55;
   font-weight: 500;
 }
 
 .portal-login-cta {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  font-size: 0.95rem;
+  gap: 10px;
+  font-size: 0.84rem;
   font-weight: 700;
   color: var(--gold-light);
-  transition: all 0.3s ease;
+  transition: gap 0.22s ease, color 0.22s ease;
 }
 
 .portal-login-cta i {
@@ -571,59 +583,24 @@
 
 .portal-login-card:hover .portal-login-cta {
   color: var(--gold);
-  gap: 16px;
+  gap: 14px;
 }
 
 .portal-login-card:hover .portal-login-cta i {
   transform: translateX(4px);
 }
 
-/* Teacher Card - Small button style */
+.portal-student-card {
+  border-color: rgba(200,150,12,0.28);
+}
+
 .portal-teacher-card {
-  padding: 14px 28px;
-  background: rgba(255,255,255,0.08);
-  border: 1.5px solid rgba(200,150,12,0.25);
-  border-radius: 50px;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  max-width: 320px;
-  margin: 0 auto;
-  gap: 12px;
+  border-color: rgba(255,255,255,0.17);
 }
 
 .portal-teacher-card .portal-login-icon {
-  width: 32px;
-  height: 32px;
-  font-size: 1rem;
-  border-radius: 8px;
-  background: rgba(200,150,12,0.15);
-  border: 1px solid rgba(200,150,12,0.3);
-}
-
-.portal-teacher-card .portal-login-content {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.portal-teacher-card .portal-login-title {
-  font-size: 1rem;
-  margin: 0;
-  font-weight: 700;
-}
-
-.portal-teacher-card .portal-login-desc {
-  display: none;
-}
-
-.portal-teacher-card .portal-login-cta {
-  display: none;
-}
-
-.portal-teacher-card:hover {
-  transform: translateY(-4px) scale(1.05);
-  box-shadow: 0 12px 36px rgba(200,150,12,0.3);
+  background: rgba(14,107,107,0.22);
+  border-color: rgba(200,150,12,0.28);
 }
 
 /* Admin Access Note */
@@ -685,48 +662,31 @@
 /* Responsive adjustments */
 @media (max-width: 700px) {
   .portal-login-options {
-    max-width: 100%;
-    gap: 20px;
+    grid-template-columns: 1fr;
+    max-width: 460px;
+    gap: 14px;
     margin-top: 24px;
   }
 
   .portal-login-card {
-    flex-direction: column;
-    text-align: center;
-    gap: 20px;
-    padding: 24px 20px;
+    gap: 14px;
+    padding: 18px;
+    min-height: auto;
   }
 
   .portal-login-icon {
-    width: 64px;
-    height: 64px;
-    font-size: 1.75rem;
+    width: 52px;
+    height: 52px;
+    font-size: 1.25rem;
   }
 
   .portal-login-title {
-    font-size: 1.4rem;
+    font-size: 1.1rem;
   }
 
   .portal-login-desc {
-    font-size: 0.88rem;
-  }
-
-  /* Teacher button stays small on mobile */
-  .portal-teacher-card {
-    flex-direction: row;
-    text-align: left;
-    padding: 12px 24px;
-    max-width: 280px;
-  }
-
-  .portal-teacher-card .portal-login-icon {
-    width: 28px;
-    height: 28px;
-    font-size: 0.9rem;
-  }
-
-  .portal-teacher-card .portal-login-title {
-    font-size: 0.95rem;
+    font-size: 0.82rem;
+    margin-bottom: 12px;
   }
 
   .portal-admin-note {
@@ -743,33 +703,15 @@
 
 @media (max-width: 420px) {
   .portal-login-card {
-    padding: 20px 16px;
-    border-radius: 20px;
-  }
-
-  .portal-login-icon {
-    width: 56px;
-    height: 56px;
-    font-size: 1.5rem;
+    padding: 16px;
     border-radius: 16px;
   }
 
-  /* Teacher button stays compact on small screens */
-  .portal-teacher-card {
-    padding: 10px 20px;
-    max-width: 260px;
-    border-radius: 40px;
-  }
-
-  .portal-teacher-card .portal-login-icon {
-    width: 26px;
-    height: 26px;
-    font-size: 0.85rem;
-    border-radius: 6px;
-  }
-
-  .portal-teacher-card .portal-login-title {
-    font-size: 0.9rem;
+  .portal-login-icon {
+    width: 46px;
+    height: 46px;
+    font-size: 1.12rem;
+    border-radius: 14px;
   }
 
   .portal-hero-brand .portal-logo {
