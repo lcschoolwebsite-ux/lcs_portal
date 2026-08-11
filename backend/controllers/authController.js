@@ -88,6 +88,7 @@ exports.login = async (req, res) => {
           id: teacher._id, 
           role: "teacher", 
           name: teacher.name,
+          photoUrl: teacher.photoUrl,
           assignedClasses: compactRefs(teacher.assignedClasses),
           assignedSubjects: compactRefs(teacher.assignedSubjects),
           ...accessFlags

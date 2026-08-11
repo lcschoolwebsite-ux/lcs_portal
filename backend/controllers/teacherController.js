@@ -1,13 +1,73 @@
 const Teacher = require("../models/Teacher");
 const Class = require("../models/Class");
 const Subject = require("../models/Subject");
+const { randomUUID } = require("crypto");
 const {
   normalizeIdList,
   syncTeacherAssignments,
   syncTeacherClassAccess
 } = require("../utils/classAssignmentSync");
+const { cloudinary, configureCloudinary } = require("../utils/cloudinary");
 
 const compactRefs = value => (Array.isArray(value) ? value.filter(Boolean) : value);
+const TEACHER_PHOTO_FOLDER = "lcsms/teachers";
+
+const uploadBufferToCloudinary = (buffer, options) => new Promise((resolve, reject) => {
+  const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
+    if (error) reject(error);
+    else resolve(result);
+  });
+  stream.end(buffer);
+});
+
+const ensureCloudinaryFolder = async (folder) => {
+  try {
+    await cloudinary.api.create_folder(folder);
+  } catch (error) {
+    const message = String(error?.message || "");
+    if (error?.http_code === 409 || /already exists/i.test(message)) return;
+    throw error;
+  }
+};
+
+const extractCloudinaryPublicIdFromUrl = (photoUrl) => {
+  if (!photoUrl) return "";
+
+  try {
+    const { pathname } = new URL(photoUrl);
+    const uploadIndex = pathname.indexOf("/upload/");
+    if (uploadIndex === -1) return "";
+
+    let publicPath = pathname.slice(uploadIndex + "/upload/".length);
+    publicPath = publicPath.replace(/^v\d+\//, "");
+    return publicPath.replace(/\.[^.\/]+$/, "");
+  } catch (_) {
+    return "";
+  }
+};
+
+const getTeacherPhotoPublicId = (teacher) =>
+  teacher?.photoPublicId || extractCloudinaryPublicIdFromUrl(teacher?.photoUrl);
+
+const populateTeacherForResponse = (query) =>
+  query.select("-password").populate("assignedClasses", "name section classTeacher").populate("assignedSubjects", "name");
+
+const assertCanManageTeacherPhoto = async (req, teacherId) => {
+  const teacher = await Teacher.findById(teacherId).select("photoPublicId photoUrl");
+  if (!teacher) {
+    const error = new Error("Teacher not found");
+    error.status = 404;
+    throw error;
+  }
+
+  if (req.user.role === "teacher" && String(req.user.id) !== String(teacherId)) {
+    const error = new Error("You can only manage your own photo");
+    error.status = 403;
+    throw error;
+  }
+
+  return teacher;
+};
 
 const hydrateTeacher = teacher => {
   if (!teacher) return teacher;
@@ -160,4 +220,78 @@ exports.resetPassword = async (req, res) => {
     await t.save();
     res.json({ message: "Password reset successful" });
   } catch (e) { res.status(400).json({ message: e.message }); }
+};
+
+exports.uploadTeacherPhoto = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "Please choose an image to upload" });
+    }
+
+    if (!configureCloudinary()) {
+      return res.status(503).json({
+        message: "Photo upload is not configured yet. Add Cloudinary credentials on the server."
+      });
+    }
+
+    const teacher = await assertCanManageTeacherPhoto(req, req.params.id);
+    const previousPhotoPublicId = getTeacherPhotoPublicId(teacher);
+    await ensureCloudinaryFolder(TEACHER_PHOTO_FOLDER);
+
+    const result = await uploadBufferToCloudinary(req.file.buffer, {
+      folder: TEACHER_PHOTO_FOLDER,
+      public_id: `teacher-${req.params.id}-${Date.now()}-${randomUUID().slice(0, 8)}`,
+      overwrite: false,
+      resource_type: "image",
+      transformation: [
+        { width: 600, height: 600, crop: "fill", gravity: "face" },
+        { quality: "auto", fetch_format: "auto" }
+      ]
+    });
+
+    const updatedTeacher = await populateTeacherForResponse(
+      Teacher.findByIdAndUpdate(
+        req.params.id,
+        { photoUrl: result.secure_url, photoPublicId: result.public_id },
+        { new: true }
+      )
+    );
+
+    if (previousPhotoPublicId && previousPhotoPublicId !== result.public_id) {
+      cloudinary.uploader.destroy(previousPhotoPublicId, { resource_type: "image" }).catch(() => {});
+    }
+
+    res.json({ photoUrl: updatedTeacher.photoUrl, teacher: hydrateTeacher(updatedTeacher) });
+  } catch (e) {
+    res.status(e.status || 400).json({ message: e.message });
+  }
+};
+
+exports.removeTeacherPhoto = async (req, res) => {
+  try {
+    const teacher = await assertCanManageTeacherPhoto(req, req.params.id);
+    const publicId = getTeacherPhotoPublicId(teacher);
+
+    if (publicId) {
+      if (!configureCloudinary()) {
+        return res.status(503).json({
+          message: "Photo removal is not configured yet. Add Cloudinary credentials on the server."
+        });
+      }
+
+      await cloudinary.uploader.destroy(publicId, { resource_type: "image" }).catch(() => {});
+    }
+
+    const updatedTeacher = await populateTeacherForResponse(
+      Teacher.findByIdAndUpdate(
+        req.params.id,
+        { photoUrl: "", photoPublicId: "" },
+        { new: true }
+      )
+    );
+
+    res.json({ message: "Photo removed", teacher: hydrateTeacher(updatedTeacher) });
+  } catch (e) {
+    res.status(e.status || 400).json({ message: e.message });
+  }
 };

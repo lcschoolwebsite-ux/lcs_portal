@@ -150,7 +150,13 @@ export default function TeacherLayout() {
 
         <div style={s.sidebarBottom}>
           <div className="portal-sidebar-profile">
-            <div className="portal-sidebar-avatar">{user?.name?.[0] || "T"}</div>
+            <div className="portal-sidebar-avatar">
+              {user?.photoUrl ? (
+                <img src={user.photoUrl} alt={user?.name || "Teacher"} style={{width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover'}} />
+              ) : (
+                user?.name?.[0] || "T"
+              )}
+            </div>
             <div className="portal-sidebar-info">
               <div className="portal-sidebar-name">{user?.name || "Teacher"}</div>
               <div className="portal-sidebar-role">TEACHER PORTAL</div>
@@ -187,7 +193,13 @@ export default function TeacherLayout() {
             </button>
             <div className="portal-header-avatar-wrap" onClick={() => navigate("/teacher/profile")}>
               <div className="portal-avatar-ring"></div>
-              <div style={s.headerAvatar}>{user?.name?.[0] || 'T'}</div>
+              <div style={s.headerAvatar}>
+                {user?.photoUrl ? (
+                  <img src={user.photoUrl} alt="Avatar" style={{width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover'}} />
+                ) : (
+                  user?.name?.[0] || 'T'
+                )}
+              </div>
             </div>
           </div>
         </header>

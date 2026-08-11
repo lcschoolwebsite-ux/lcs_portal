@@ -9,6 +9,8 @@ const {
   bulkUpload,
   update,
   deactivate,
+  updateOwnProfile,
+  getMyTeachers,
   uploadStudentPhoto,
   removeStudentPhoto
 } = require("../controllers/studentController");
@@ -58,6 +60,8 @@ const handleExcelUpload = (req, res, next) => {
 
 router.get("/", auth, getAll);
 router.post("/bulk-upload", auth, roles("admin"), handleExcelUpload, bulkUpload);
+router.put("/:id/profile", auth, roles("student"), updateOwnProfile);
+router.get("/:id/teachers", auth, roles("student"), getMyTeachers);
 router.post("/:id/photo", auth, roles("admin", "teacher", "student"), handlePhotoUpload, uploadStudentPhoto);
 router.delete("/:id/photo", auth, roles("admin", "teacher", "student"), removeStudentPhoto);
 router.get("/:id", auth, getOne);

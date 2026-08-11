@@ -3,6 +3,7 @@ const Class = require("../models/Class");
 const AcademicYear = require("../models/AcademicYear");
 const FeeStructure = require("../models/FeeStructure");
 const Teacher = require("../models/Teacher");
+const Subject = require("../models/Subject");
 const { randomUUID } = require("crypto");
 const ExcelJS = require("exceljs");
 const { assignFeeStructureToStudents } = require("./feeStructureController");
@@ -89,6 +90,24 @@ const assertCanManageStudent = async (req, studentId) => {
 
 const populateStudentForResponse = (query) =>
   query.populate("class", "name section").populate("academicYear", "year").lean();
+
+const assertStudentSelf = (req, studentId) => {
+  if (req.user.role !== "student" || String(req.user.id) !== String(studentId)) {
+    const error = new Error("You can only update your own profile");
+    error.status = 403;
+    throw error;
+  }
+};
+
+const normalizeEditableStudentProfile = (body) => {
+  const payload = {};
+  ["email", "address", "dob", "penCode"].forEach(field => {
+    if (Object.prototype.hasOwnProperty.call(body, field)) {
+      payload[field] = String(body[field] || "").trim();
+    }
+  });
+  return payload;
+};
 
 const requiredStudentFields = ["name", "fatherName", "motherName", "mobile", "satCode"];
 
@@ -447,6 +466,94 @@ exports.update = async (req, res) => {
     const s = await Student.findByIdAndUpdate(req.params.id, payload, { new: true });
     res.json(s);
   } catch (e) { res.status(400).json({ message: e.message }); }
+};
+
+exports.updateOwnProfile = async (req, res) => {
+  try {
+    assertStudentSelf(req, req.params.id);
+    const payload = normalizeEditableStudentProfile(req.body);
+
+    if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+      return res.status(400).json({ message: "Please enter a valid email address" });
+    }
+
+    const student = await populateStudentForResponse(
+      Student.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true })
+    );
+    if (!student) return res.status(404).json({ message: "Student not found" });
+
+    res.json({ message: "Profile updated", student });
+  } catch (e) {
+    const isDuplicatePen = e?.code === 11000 && e?.keyPattern?.penCode;
+    res.status(e.status || 400).json({
+      message: isDuplicatePen ? "This PEN code is already used by another student" : e.message
+    });
+  }
+};
+
+exports.getMyTeachers = async (req, res) => {
+  try {
+    assertStudentSelf(req, req.params.id);
+    const student = await Student.findById(req.params.id).select("class").lean();
+    if (!student) return res.status(404).json({ message: "Student not found" });
+
+    const [classDoc, subjects] = await Promise.all([
+      Class.findById(student.class)
+        .populate("classTeacher", "name phone email photoUrl")
+        .populate("classTeacherSubject", "name")
+        .lean(),
+      Subject.find({ class: student.class })
+        .populate("teacher", "name phone email photoUrl")
+        .sort({ name: 1 })
+        .lean()
+    ]);
+
+    const classTeacherId = String(classDoc?.classTeacher?._id || "");
+    const classTeacherSubjectId = String(classDoc?.classTeacherSubject?._id || "");
+
+    const rows = subjects.map(subject => {
+      const teacherId = String(subject.teacher?._id || "");
+      const isClassTeacher = Boolean(classTeacherId && teacherId === classTeacherId);
+      return {
+        subjectId: subject._id,
+        subjectName: subject.name,
+        teacherId: subject.teacher?._id || "",
+        teacherName: subject.teacher?.name || "Not assigned",
+        teacherPhone: subject.teacher?.phone || "",
+        teacherEmail: subject.teacher?.email || "",
+        photoUrl: subject.teacher?.photoUrl || "",
+        role: isClassTeacher ? "Class Teacher" : "Subject Teacher"
+      };
+    });
+
+    if (classDoc?.classTeacher) {
+      const hasClassTeacherRow = rows.some(row =>
+        String(row.teacherId || "") === classTeacherId &&
+        (!classTeacherSubjectId || String(row.subjectId || "") === classTeacherSubjectId)
+      );
+
+      if (!hasClassTeacherRow) {
+        rows.unshift({
+          subjectId: classDoc.classTeacherSubject?._id || "",
+          subjectName: classDoc.classTeacherSubject?.name || "Class Teacher",
+          teacherId: classDoc.classTeacher._id,
+          teacherName: classDoc.classTeacher.name || "Class Teacher",
+          teacherPhone: classDoc.classTeacher.phone || "",
+          teacherEmail: classDoc.classTeacher.email || "",
+          photoUrl: classDoc.classTeacher.photoUrl || "",
+          role: "Class Teacher"
+        });
+      }
+    }
+
+    res.json({
+      classTeacher: classDoc?.classTeacher || null,
+      classTeacherSubject: classDoc?.classTeacherSubject || null,
+      teachers: rows
+    });
+  } catch (e) {
+    res.status(e.status || 400).json({ message: e.message });
+  }
 };
 
 exports.uploadStudentPhoto = async (req, res) => {

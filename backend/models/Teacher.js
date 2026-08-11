@@ -7,6 +7,8 @@ const teacherSchema = new mongoose.Schema({
   password:         { type: String, required: true },
   email:            { type: String },
   phone:            { type: String },
+  photoUrl:         { type: String, default: "" },
+  photoPublicId:    { type: String, default: "" },
   assignedClasses:  [{ type: mongoose.Schema.Types.ObjectId, ref: "Class" }],
   assignedSubjects: [{ type: mongoose.Schema.Types.ObjectId, ref: "Subject" }],
   pushTokens: [
