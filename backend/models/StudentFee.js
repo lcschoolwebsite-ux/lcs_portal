@@ -108,6 +108,7 @@ studentFeeSchema.pre("validate", function(next) {
 });
 
 studentFeeSchema.index({ student: 1, academicYear: 1 }, { unique: true });
+studentFeeSchema.index({ academicYear: 1 });
 studentFeeSchema.index({ academicYear: 1, overallStatus: 1 });
 studentFeeSchema.index({ feeStructure: 1 });
 

@@ -1,5 +1,4 @@
 import { createContext, useEffect, useState } from "react";
-import { io } from "socket.io-client";
 import { useAuth } from "./useAuth";
 
 export const SocketContext = createContext(null);
@@ -11,15 +10,31 @@ export function SocketProvider({ children }) {
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
+    let cancelled = false;
+    let activeSocket = null;
+
     if (user) {
-      const token = localStorage.getItem("token");
-      const newSocket = io(SOCKET_URL, {
-        auth: { token },
-        withCredentials: true,
-        transports: ["websocket", "polling"]
-      });
-      setSocket(newSocket);
-      return () => newSocket.close();
+      import("socket.io-client")
+        .then(({ io }) => {
+          if (cancelled) return;
+
+          const token = localStorage.getItem("token");
+          activeSocket = io(SOCKET_URL, {
+            auth: { token },
+            withCredentials: true,
+            transports: ["websocket", "polling"]
+          });
+          setSocket(activeSocket);
+        })
+        .catch((error) => {
+          if (!cancelled) console.warn("Socket client failed to load:", error.message);
+        });
+
+      return () => {
+        cancelled = true;
+        activeSocket?.close();
+        setSocket(null);
+      };
     } else {
       setSocket(null);
     }

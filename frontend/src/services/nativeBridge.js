@@ -1,13 +1,6 @@
-import { Capacitor } from "@capacitor/core";
-import { App } from "@capacitor/app";
-import { Network } from "@capacitor/network";
-import { PushNotifications } from "@capacitor/push-notifications";
-import { LocalNotifications } from "@capacitor/local-notifications";
-import { StatusBar, Style } from "@capacitor/status-bar";
 import api from "../api/axios";
 import { APP_VERSION_CODE, VERSION_MANIFEST_URL } from "../config/appVersion";
 
-const isNativeAndroid = Capacitor.getPlatform() === "android" && Capacitor.isNativePlatform();
 const pushState = {
   listenersReady: false,
   currentUserKey: "",
@@ -15,23 +8,55 @@ const pushState = {
   user: null,
 };
 
+const getCapacitorGlobal = () => globalThis.Capacitor || null;
+
+const isNativeAndroidSync = () => {
+  const capacitor = getCapacitorGlobal();
+  return Boolean(
+    capacitor &&
+    typeof capacitor.getPlatform === "function" &&
+    typeof capacitor.isNativePlatform === "function" &&
+    capacitor.getPlatform() === "android" &&
+    capacitor.isNativePlatform()
+  );
+};
+
+const loadCapacitorCore = async () => {
+  const { Capacitor } = await import("@capacitor/core");
+  return Capacitor;
+};
+
+const isNativeAndroidAsync = async () => {
+  if (isNativeAndroidSync()) return true;
+  const Capacitor = await loadCapacitorCore();
+  return Capacitor.getPlatform() === "android" && Capacitor.isNativePlatform();
+};
+
+const loadStatusBar = async () => import("@capacitor/status-bar");
+const loadNetwork = async () => import("@capacitor/network");
+const loadPushNotifications = async () => import("@capacitor/push-notifications");
+const loadLocalNotifications = async () => import("@capacitor/local-notifications");
+const loadApp = async () => import("@capacitor/app");
+
 const safeJson = async (response) => {
   const text = await response.text();
   return text ? JSON.parse(text) : null;
 };
 
-export const isNativeAndroidApp = () => isNativeAndroid;
+export const isNativeAndroidApp = () => isNativeAndroidSync();
 
 export const bootstrapNativeShell = async () => {
-  if (!isNativeAndroid) return { online: true };
+  if (!(await isNativeAndroidAsync())) return { online: true };
 
   try {
+    const { StatusBar, Style } = await loadStatusBar();
     await StatusBar.setStyle({ style: Style.Dark });
     await StatusBar.setBackgroundColor({ color: "#051a1a" });
   } catch (_) {}
 
   let online = true;
   try {
+    const { Network } = await loadNetwork();
     const status = await Network.getStatus();
     online = Boolean(status.connected);
   } catch (_) {}
@@ -40,20 +65,22 @@ export const bootstrapNativeShell = async () => {
 };
 
 export const subscribeToNetworkChanges = async (onChange) => {
-  if (!isNativeAndroid || typeof onChange !== "function") return () => {};
+  if (typeof onChange !== "function" || !(await isNativeAndroidAsync())) return () => {};
 
   try {
+    const { Network } = await loadNetwork();
     const status = await Network.getStatus();
     onChange(Boolean(status.connected));
+
+    const listener = await Network.addListener("networkStatusChange", (status) => {
+      onChange(Boolean(status.connected));
+    });
+
+    return () => {
+      listener.remove().catch(() => {});
+    };
   } catch (_) {}
-
-  const listener = await Network.addListener("networkStatusChange", (status) => {
-    onChange(Boolean(status.connected));
-  });
-
-  return () => {
-    listener.remove().catch(() => {});
-  };
+  return () => {};
 };
 
 const postDeviceToken = async (token, user) => {
@@ -77,6 +104,10 @@ const postDeviceToken = async (token, user) => {
 const setupPushListeners = async () => {
   if (pushState.listenersReady) return;
   pushState.listenersReady = true;
+  const [{ PushNotifications }, { LocalNotifications }] = await Promise.all([
+    loadPushNotifications(),
+    loadLocalNotifications()
+  ]);
 
   PushNotifications.addListener("registration", async (token) => {
     pushState.token = token.value;
@@ -118,7 +149,7 @@ const setupPushListeners = async () => {
 };
 
 export const registerNativePushForUser = async (user) => {
-  if (!isNativeAndroid || !user || !["student", "teacher"].includes(user.role)) return;
+  if (!user || !["student", "teacher"].includes(user.role) || !(await isNativeAndroidAsync())) return;
 
   const currentKey = `${user.role}:${user.id || user._id || ""}`;
   pushState.user = user;
@@ -128,6 +159,10 @@ export const registerNativePushForUser = async (user) => {
   }
 
   await setupPushListeners();
+  const [{ PushNotifications }, { LocalNotifications }] = await Promise.all([
+    loadPushNotifications(),
+    loadLocalNotifications()
+  ]);
 
   const permission = await PushNotifications.requestPermissions();
   if (permission.receive !== "granted") {
@@ -180,8 +215,9 @@ export const checkRemoteVersion = async () => {
 };
 
 export const getAppInfo = async () => {
-  if (!isNativeAndroid) return null;
+  if (!(await isNativeAndroidAsync())) return null;
   try {
+    const { App } = await loadApp();
     return await App.getInfo();
   } catch (_) {
     return null;

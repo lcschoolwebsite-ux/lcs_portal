@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { lazy, Suspense, useState, useEffect } from "react";
 import { AuthProvider } from "./context/AuthContext";
 import { SocketProvider } from "./context/SocketContext";
 import { useSocket } from "./context/useSocket";
@@ -7,7 +7,6 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Toast from "./components/Toast";
 import UpdateAvailableModal from "./components/UpdateAvailableModal";
-import AnimatedSplash from "./components/AnimatedSplash";
 import {
   bootstrapNativeShell,
   checkRemoteVersion,
@@ -16,12 +15,19 @@ import {
   subscribeToNetworkChanges
 } from "./services/nativeBridge";
 import { useAuth } from "./context/useAuth";
-import Login from "./pages/Login";
-import PortalHome from "./pages/PortalHome";
-import StudentLogin from "./pages/StudentLogin";
-import AdminLayout from "./layouts/AdminLayout";
-import TeacherLayout from "./layouts/TeacherLayout";
-import StudentLayout from "./layouts/StudentLayout";
+
+const PortalHome = lazy(() => import("./pages/PortalHome"));
+const Login = lazy(() => import("./pages/Login"));
+const StudentLogin = lazy(() => import("./pages/StudentLogin"));
+const AdminLayout = lazy(() => import("./layouts/AdminLayout"));
+const TeacherLayout = lazy(() => import("./layouts/TeacherLayout"));
+const StudentLayout = lazy(() => import("./layouts/StudentLayout"));
+
+const routeFallback = (
+  <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#051a1a", color: "#fff" }}>
+    Loading...
+  </div>
+);
 
 function AppContent() {
   const { user } = useAuth();
@@ -29,21 +35,6 @@ function AppContent() {
   const [notification, setNotification] = useState(null);
   const [isOnline, setIsOnline] = useState(true);
   const [updateInfo, setUpdateInfo] = useState(null);
-  const [showSplash, setShowSplash] = useState(!isNativeAndroidApp());
-
-  // Fallback: Force hide splash after max 3 seconds on web.
-  useEffect(() => {
-    if (isNativeAndroidApp()) return;
-
-    const fallbackTimer = setTimeout(() => {
-      if (showSplash) {
-        console.warn("Splash screen fallback timeout triggered");
-        setShowSplash(false);
-      }
-    }, 3000);
-
-    return () => clearTimeout(fallbackTimer);
-  }, [showSplash]);
 
   useEffect(() => {
     if (socket) {
@@ -80,9 +71,7 @@ function AppContent() {
       }
     };
 
-    if (isNativeAndroidApp()) {
-      bootstrap();
-    }
+    bootstrap();
 
     return () => {
       mounted = false;
@@ -106,16 +95,17 @@ function AppContent() {
       )}
       {notification && <Toast message={notification.message} onClose={() => setNotification(null)} />}
       <UpdateAvailableModal update={updateInfo} onClose={() => setUpdateInfo(null)} />
-      <Routes>
-        <Route path="/" element={<PortalHome />} />
-        <Route path="/head" element={<Login />} />
-        <Route path="/login" element={<Navigate to="/head" replace />} />
-        <Route path="/student-login" element={<StudentLogin />} />
-        <Route path="/admin/*" element={<ProtectedRoute role="admin"><AdminLayout /></ProtectedRoute>} />
-        <Route path="/teacher/*" element={<ProtectedRoute role="teacher"><TeacherLayout /></ProtectedRoute>} />
-        <Route path="/student/*" element={<ProtectedRoute role="student"><StudentLayout /></ProtectedRoute>} />
-      </Routes>
-      {showSplash && <AnimatedSplash onComplete={() => setShowSplash(false)} />}
+      <Suspense fallback={routeFallback}>
+        <Routes>
+          <Route path="/" element={<PortalHome />} />
+          <Route path="/head" element={<Login />} />
+          <Route path="/login" element={<Navigate to="/head" replace />} />
+          <Route path="/student-login" element={<StudentLogin />} />
+          <Route path="/admin/*" element={<ProtectedRoute role="admin"><AdminLayout /></ProtectedRoute>} />
+          <Route path="/teacher/*" element={<ProtectedRoute role="teacher"><TeacherLayout /></ProtectedRoute>} />
+          <Route path="/student/*" element={<ProtectedRoute role="student"><StudentLayout /></ProtectedRoute>} />
+        </Routes>
+      </Suspense>
     </>
   );
 }

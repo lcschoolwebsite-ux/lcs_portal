@@ -82,6 +82,45 @@ const ensurePushSubscriptionIndexes = async () => {
   }
 };
 
+const ensurePerformanceIndexes = async () => {
+  const db = mongoose.connection.db;
+
+  await Promise.all([
+    db.collection("academicyears").createIndex(
+      { isActive: 1 },
+      { name: "isActive_1" }
+    ),
+    db.collection("attendances").createIndex(
+      { date: 1 },
+      { name: "date_1" }
+    ),
+    db.collection("studentfees").createIndex(
+      { academicYear: 1 },
+      { name: "academicYear_1" }
+    ),
+    db.collection("exams").createIndex(
+      { academicYear: 1, class: 1, date: -1 },
+      { name: "academicYear_1_class_1_date_-1" }
+    ),
+    db.collection("exams").createIndex(
+      { class: 1, subject: 1, date: -1 },
+      { name: "class_1_subject_1_date_-1" }
+    ),
+    db.collection("exams").createIndex(
+      { examType: 1, date: -1 },
+      { name: "examType_1_date_-1" }
+    ),
+    db.collection("subjects").createIndex(
+      { academicYear: 1, class: 1, name: 1 },
+      { name: "academicYear_1_class_1_name_1" }
+    ),
+    db.collection("subjects").createIndex(
+      { teacher: 1, academicYear: 1 },
+      { name: "teacher_1_academicYear_1" }
+    )
+  ]);
+};
+
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI, {
@@ -94,6 +133,7 @@ const connectDB = async () => {
     });
     await ensureStudentIndexes();
     await ensurePushSubscriptionIndexes();
+    await ensurePerformanceIndexes();
     console.log(`✅ MongoDB connected: ${conn.connection.host}`);
     return true;
   } catch (err) {

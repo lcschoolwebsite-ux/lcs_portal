@@ -1,11 +1,10 @@
 import { createContext, useState, useEffect } from "react";
-import { Capacitor } from "@capacitor/core";
-import { Preferences } from "@capacitor/preferences";
 import api, { clearAuthToken, setAuthToken } from "../api/axios";
 import {
   clearStudentSessionMarker,
   getActiveStudentProfile
 } from "../services/studentSessions";
+import { isNativeAndroidApp } from "../services/nativeBridge";
 
 export const AuthContext = createContext(null);
 
@@ -35,7 +34,7 @@ export function AuthProvider({ children }) {
     const token = localStorage.getItem("token");
     if (!token) {
       const restoreNativeStudentSession = async () => {
-        if (Capacitor.getPlatform() !== "android" || !Capacitor.isNativePlatform()) {
+        if (!isNativeAndroidApp()) {
           setLoading(false);
           return;
         }
@@ -94,7 +93,6 @@ export function AuthProvider({ children }) {
   const logout = () => {
     clearAuthToken();
     localStorage.removeItem("token");
-    Preferences.remove({ key: "lcs.student.session" }).catch(() => {});
     clearStudentSessionMarker().catch(() => {});
     setUser(null);
   };

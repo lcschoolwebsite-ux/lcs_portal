@@ -1,7 +1,10 @@
-import { Preferences } from "@capacitor/preferences";
-
 const PROFILES_KEY = "lcs.student.profiles";
 const ACTIVE_PROFILE_KEY = "lcs.student.active-profile";
+
+const getPreferences = async () => {
+  const { Preferences } = await import("@capacitor/preferences");
+  return Preferences;
+};
 
 const normalizeId = (value) => String(value || "").trim();
 
@@ -38,6 +41,7 @@ const toProfile = (user, token) => {
 };
 
 export const loadStudentProfiles = async () => {
+  const Preferences = await getPreferences();
   const { value } = await Preferences.get({ key: PROFILES_KEY });
   const profiles = safeParse(value, []);
   return Array.isArray(profiles) ? profiles.filter((item) => item && item.profileId && item.user) : [];
@@ -49,6 +53,7 @@ export const saveStudentProfile = async (user, token) => {
 
   const profiles = await loadStudentProfiles();
   const nextProfiles = [profile, ...profiles.filter((item) => item.profileId !== profile.profileId)];
+  const Preferences = await getPreferences();
 
   await Preferences.set({
     key: PROFILES_KEY,
@@ -64,6 +69,7 @@ export const saveStudentProfile = async (user, token) => {
 
 export const setActiveStudentProfile = async (profileId) => {
   if (!profileId) return;
+  const Preferences = await getPreferences();
   await Preferences.set({
     key: ACTIVE_PROFILE_KEY,
     value: normalizeId(profileId)
@@ -71,6 +77,7 @@ export const setActiveStudentProfile = async (profileId) => {
 };
 
 export const getActiveStudentProfile = async () => {
+  const Preferences = await getPreferences();
   const [profiles, active] = await Promise.all([
     loadStudentProfiles(),
     Preferences.get({ key: ACTIVE_PROFILE_KEY })
@@ -84,6 +91,7 @@ export const getActiveStudentProfile = async () => {
 
 export const removeStudentProfile = async (profileId) => {
   const nextProfiles = (await loadStudentProfiles()).filter((item) => item.profileId !== normalizeId(profileId));
+  const Preferences = await getPreferences();
   await Preferences.set({
     key: PROFILES_KEY,
     value: JSON.stringify(nextProfiles)
@@ -98,7 +106,11 @@ export const removeStudentProfile = async (profileId) => {
 };
 
 export const clearStudentSessionMarker = async () => {
-  await Preferences.remove({ key: ACTIVE_PROFILE_KEY });
+  const Preferences = await getPreferences();
+  await Promise.all([
+    Preferences.remove({ key: ACTIVE_PROFILE_KEY }),
+    Preferences.remove({ key: "lcs.student.session" })
+  ]);
 };
 
 export const studentProfileSummary = (profile) => {

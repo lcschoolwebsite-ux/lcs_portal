@@ -8,41 +8,34 @@ const { getHolidayCalendar, toLocalDateString } = require("../utils/holidayUtils
 
 exports.getAdminStats = async (req, res) => {
   try {
-    const activeYear = await AcademicYear.findOne({ isActive: true });
+    const activeYear = await AcademicYear.findOne({ isActive: true }).select("_id startDate endDate").lean();
     const yearId = activeYear ? activeYear._id : null;
 
-    // 1. Basic Counts
-    const [studentCount, teacherCount, classCount] = await Promise.all([
+    const [studentCount, teacherCount, classCount, feeStats, studentsByClass] = await Promise.all([
       Student.countDocuments({ isActive: true }),
       Teacher.countDocuments({ isActive: true }),
-      Class.countDocuments({})
-    ]);
-
-    // 2. Fee Stats
-    const feeStats = await StudentFee.aggregate([
-      { $match: yearId ? { academicYear: yearId } : {} },
-      { 
-        $group: {
-          _id: null,
-          totalCollected: { $sum: "$totalPaid" },
-          totalDue: { $sum: "$totalDue" },
-          totalExpected: { $sum: "$totalAnnualFee" }
+      Class.countDocuments({}),
+      StudentFee.aggregate([
+        { $match: yearId ? { academicYear: yearId } : {} },
+        {
+          $group: {
+            _id: null,
+            totalCollected: { $sum: "$totalPaid" },
+            totalDue: { $sum: "$totalDue" },
+            totalExpected: { $sum: "$totalAnnualFee" }
+          }
         }
-      }
+      ]),
+      Student.aggregate([
+        { $match: { isActive: true } },
+        { $group: { _id: "$class", count: { $sum: 1 } } },
+        { $lookup: { from: "classes", localField: "_id", foreignField: "_id", as: "classInfo" } },
+        { $unwind: "$classInfo" },
+        { $project: { name: { $concat: ["$classInfo.name", "$classInfo.section"] }, count: 1 } }
+      ])
     ]);
 
     const fees = feeStats[0] || { totalCollected: 0, totalDue: 0, totalExpected: 0 };
-
-    // 3. Students by Class
-    const studentsByClass = await Student.aggregate([
-      { $match: { isActive: true } },
-      { $group: { _id: "$class", count: { $sum: 1 } } },
-      { $lookup: { from: "classes", localField: "_id", foreignField: "_id", as: "classInfo" } },
-      { $unwind: "$classInfo" },
-      { $project: { name: { $concat: ["$classInfo.name", "$classInfo.section"] }, count: 1 } }
-    ]);
-
-    // 4. Today's Attendance
     const today = toLocalDateString(new Date());
     const { holidays } = await getHolidayCalendar(yearId);
     const todayHoliday = holidays.find(h => h.date === today);
@@ -69,16 +62,26 @@ exports.getAdminStats = async (req, res) => {
       });
     }
 
-    const attendanceRecords = await Attendance.find({ date: today })
-      .select("class absentees")
-      .populate("class", "name section classTeacher")
-      .lean();
+    const [attendanceRecords, allClasses] = await Promise.all([
+      Attendance.find({ date: today })
+        .select("class absentees")
+        .lean(),
+      Class.find({})
+        .select("name section classTeacher")
+        .populate("classTeacher", "name username")
+        .lean()
+    ]);
+
+    const markedClassIds = attendanceRecords
+      .map(a => a.class?.toString())
+      .filter(Boolean);
     
-    // We need total students to calculate present count
-    const totalStudentsInMarkedClasses = await Student.countDocuments({ 
-      class: { $in: attendanceRecords.map(a => a.class?._id).filter(Boolean) },
-      isActive: true
-    });
+    const totalStudentsInMarkedClasses = markedClassIds.length
+      ? await Student.countDocuments({
+          class: { $in: markedClassIds },
+          isActive: true
+        })
+      : 0;
     
     const totalAbsentees = attendanceRecords.reduce((sum, rec) => sum + rec.absentees.length, 0);
 
@@ -90,14 +93,9 @@ exports.getAdminStats = async (req, res) => {
       isHoliday: false
     };
 
-    // Find unmarked classes
-    const allClasses = await Class.find({})
-      .select("name section classTeacher")
-      .populate("classTeacher", "name username")
-      .lean();
-    const markedClassIds = attendanceRecords.map(a => a.class?._id.toString()).filter(Boolean);
+    const markedClassIdSet = new Set(markedClassIds);
     todayAttendance.unmarkedClassDetails = allClasses
-      .filter(c => !markedClassIds.includes(c._id.toString()))
+      .filter(c => !markedClassIdSet.has(c._id.toString()))
       .map(c => ({
         classId: c._id,
         className: `${c.name}${c.section}`,
